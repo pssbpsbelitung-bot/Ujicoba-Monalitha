@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Monitoring Harga (Monalitha)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;margin:0;padding:24px}
+    h1{margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+    .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+    select{padding:8px;border-radius:8px;border:1px solid #ccc}
+  </style>
+</head>
+<body>
+
+<h1>📊 Dashboard Monitoring & Evaluasi Harga (Monalitha)</h1>
+
+<div class="grid">
+  <div class="card">
+    <h3>Filter Komoditas</h3>
+    <select id="commoditySelect"></select>
+  </div>
+  <div class="card">
+    <h3>Progres Pendataan per Petugas</h3>
+    <canvas id="petugasChart"></canvas>
+  </div>
+  <div class="card">
+    <canvas id="priceChart"></canvas>
+  </div>
+  <div class="card">
+    <canvas id="diffChart"></canvas>
+  </div>
+</div>
+
+<script>riceChart"></canvas>
+  </div>
+  <div class="card">
+    <canvas id="diffChart"></canvas>
+  </div>
+</div>
+
+<script>
+// GANTI dengan link CSV hasil Publish to Web Google Sheets
+const CSV_URL = "PASTE_CSV_URL_DI_SINI";
+
+async function loadData(){
+  const res = await fetch(CSV_URL);
+  const text = await resreturn {
+      waktu: c[0],
+      kegiatan: c[1],
+      bulan: c[2],
+      petugas: c[4],
+      komoditas: c[5],
+      hargaLama: Number(c[6]),
+      hargaBaru: Number(c[7]),
+      selisih: Number(c[8])
+    } kegiatan: c[1],
+      bulan: c[2],
+      petugas: c[4],
+function initDashboard(data){
+  // === CHART PROGRES PETUGAS ===
+  const petugasCount = {};
+  data.forEach(d=>{
+    petugasCount[d.petugas] = (petugasCount[d.petugas]||0)+1;
+  });
+
+  petugasChart = new Chart(document.getElementById('petugasChart'),{
+    type:'bar',
+    data:{
+      labels:Object.keys(petugasCount),
+      datasets:[{label:'Jumlah Entri Pendataan',data:Object.values(petugasCount)}]
+    }
+  });hargaLama: Number(c[6]),
+      hargaBaru: Number(c[7]),
+      selisih: Number(c[8])
+    }
+  }).filter(d=>d.komoditas);
+
+  initDashboard(data);
+}
+
+function initDashboard(data){
+  // === CHART PROGRES PETUGAS ===
+  const petugasCount = {};
+  data.forEach(d=>{
+    petugasCounlet priceChart,diffChart,petugasChart;unt[d.petugas]||0)+1;
+  });
+
+  petugasChart = new Char
+  const select = document.getElementById('commoditySelect');
+  const commodities = [...new Set(data.map(d=>d.komoditas))];
+
+  commodities.forEach(c=>{
+    const opt=document.createElement('option');
+    opt.value=c;opt.textContent=c;
+    select.appendChild(opt);
+  });
+
+  let priceChart,diffChart,petugasChart;
+
+  function render(commodity){
+    const d = data.filter(x=>x.komoditas===commodity);
+    const labels=d.map(x=>x.waktu);
+
+    if(priceChart) priceChart.destroy();
+    if(diffChart) diffChart.destroy();
+
+    priceChart=new Chart(document.getElementById('priceChart'),{
+      type:'line',
+      data:{labels,datasets:[
+        {label:'Harga Lama',data:d.map(x=>x.hargaLama)},
+        {label:'Harga Baru',data:d.map(x=>x.hargaBaru)}
+      ]}
+    });
+
+    diffChart=new Chart(document.getElementById('diffChart'),{
+      type:'bar',
+      data:{labels,datasets:[{label:'Selisih Harga',data:d.map(x=>x.selisih)}]}
+    });
+  }
+
+  render(commodities[0]);
+  select.onchange=e=>render(e.target.value);
+}
+
+loadData();
+</script>
+</body>
+</html>
