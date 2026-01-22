@@ -43,7 +43,7 @@ canvas{width:100%!important;height:300px!important}
   <div class="card"><div class="kpi" id="kpiEkstrem">0</div><div class="kpi-label">Fenomena Ekstrem</div></div>
 </div>
 
-<!-- FILTER UTAMA -->
+<!-- FILTER BULAN -->
 <div class="grid">
   <div class="card">
     <h3>Pilih Bulan</h3>
@@ -59,7 +59,7 @@ canvas{width:100%!important;height:300px!important}
   </div>
 </div>
 
-<!-- FILTER KOMODITAS (DRILL DOWN) -->
+<!-- FILTER KOMODITAS -->
 <div class="grid">
   <div class="card">
     <h3>Filter Komoditas (Opsional)</h3>
@@ -85,32 +85,50 @@ const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx8
 
 let allData=[],priceChart,modePimpinan=false;
 
+/* ==== CSV PARSER AMAN (FIX UTAMA) ==== */
+function parseCSV(text){
+  const rows=[];
+  let cur=[],val='',inside=false;
+
+  for(let c of text){
+    if(c === '"') inside=!inside;
+    else if(c === ',' && !inside){ cur.push(val); val=''; }
+    else if(c === '\n' && !inside){ cur.push(val); rows.push(cur); cur=[]; val=''; }
+    else val+=c;
+  }
+  cur.push(val);
+  rows.push(cur);
+  return rows;
+}
+
 async function loadData(){
   const res=await fetch(CSV_URL);
   const text=await res.text();
-  const rows=text.split("\n").slice(1);
+  const rows=parseCSV(text).slice(1);
 
-  allData=rows.map(r=>{
-    const c=r.split(',');
-    return{
-      bulan:c[2],
-      kegiatan:c[1],
-      komoditas:c[5],
-      selisih:+c[8],
-      harga:+c[7],
-      alasan:c[9]||'Tidak ada keterangan'
-    }
-  }).filter(d=>d.komoditas);
+  allData=rows.map(c=>({
+    kegiatan:c[1],
+    bulan:c[2],
+    komoditas:c[5],
+    harga:+c[7],
+    selisih:+c[8],
+    alasan:c[9]||'Tidak ada keterangan'
+  })).filter(d=>d.bulan && d.komoditas);
 
   init();
 }
 
 function init(){
-  const months=[...new Set(allData.map(d=>d.bulan))];
-  const commodities=[...new Set(allData.map(d=>d.komoditas))];
+  monthSelect.innerHTML='';
+  commoditySelect.innerHTML='<option value="ALL">Semua Komoditas</option>';
 
-  months.forEach(m=>monthSelect.add(new Option(m,m)));
-  commodities.forEach(k=>commoditySelect.add(new Option(k,k)));
+  [...new Set(allData.map(d=>d.bulan))].forEach(b=>{
+    monthSelect.add(new Option(b,b));
+  });
+
+  [...new Set(allData.map(d=>d.komoditas))].forEach(k=>{
+    commoditySelect.add(new Option(k,k));
+  });
 
   monthSelect.onchange=render;
   commoditySelect.onchange=render;
@@ -120,10 +138,10 @@ function init(){
 
 function render(){
   const bulan=monthSelect.value;
-  const komoditas=commoditySelect.value;
+  const kom=commoditySelect.value;
 
   let data=allData.filter(d=>d.bulan===bulan);
-  if(komoditas!=='ALL') data=data.filter(d=>d.komoditas===komoditas);
+  if(kom!=='ALL') data=data.filter(d=>d.komoditas===kom);
 
   const map={};
   data.forEach(d=>{
@@ -131,38 +149,32 @@ function render(){
     map[key]=(map[key]||0)+Math.abs(d.selisih);
   });
 
-  const avg=Object.values(map).reduce((a,b)=>a+b,0)/Object.values(map).length;
+  const avg=Object.values(map).reduce((a,b)=>a+b,0)/Math.max(1,Object.values(map).length);
   fenomenaList.innerHTML='';
-  let ekstrem=0;
-  let narasi=[];
+  let ekstrem=0,narasi=[];
 
-  Object.entries(map)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,5)
-    .forEach(([key,val])=>{
-      const [komoditas,kegiatan]=key.split('|');
-      const rows=data.filter(d=>d.komoditas===komoditas && d.kegiatan===kegiatan);
+  Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([key,val])=>{
+    const [komoditas,kegiatan]=key.split('|');
+    const rows=data.filter(d=>d.komoditas===komoditas && d.kegiatan===kegiatan);
 
-      const alasan=rows.reduce((a,b)=>{
-        a[b.alasan]=(a[b.alasan]||0)+1; return a;
-      },{});
-      const topAlasan=Object.entries(alasan).sort((a,b)=>b[1]-a[1])[0][0];
+    const alasan=rows.reduce((a,b)=>{a[b.alasan]=(a[b.alasan]||0)+1;return a;},{});
+    const topAlasan=Object.entries(alasan).sort((a,b)=>b[1]-a[1])[0][0];
 
-      const isEkstrem=val>avg*2;
-      if(isEkstrem) ekstrem++;
+    const isEkstrem=val>avg*2;
+    if(isEkstrem) ekstrem++;
 
-      const li=document.createElement('li');
-      li.innerHTML=`
-        <b>${komoditas}</b><br>
-        <small>Jenis Kegiatan: <b>${kegiatan}</b></small><br>
-        Fenomena: <b>${topAlasan}</b><br>
-        Total Perubahan: <b>${val.toLocaleString('id-ID')}</b>
-        ${isEkstrem?'<div class="extreme">Fenomena Ekstrem</div>':''}
-      `;
-      fenomenaList.appendChild(li);
+    const li=document.createElement('li');
+    li.innerHTML=`
+      <b>${komoditas}</b><br>
+      <small>Jenis Kegiatan: <b>${kegiatan}</b></small><br>
+      Fenomena: <b>${topAlasan}</b><br>
+      Total Perubahan: <b>${val.toLocaleString('id-ID')}</b>
+      ${isEkstrem?'<div class="extreme">Fenomena Ekstrem</div>':''}
+    `;
+    fenomenaList.appendChild(li);
 
-      narasi.push(`Pada bulan ${bulan}, komoditas ${komoditas} pada kegiatan ${kegiatan} mengalami perubahan harga signifikan akibat ${topAlasan.toLowerCase()}.`);
-    });
+    narasi.push(`Pada bulan ${bulan}, komoditas ${komoditas} mengalami perubahan harga signifikan akibat ${topAlasan.toLowerCase()}.`);
+  });
 
   if(modePimpinan){
     kpiFenomena.innerText=Object.keys(map).length;
@@ -174,7 +186,7 @@ function render(){
 }
 
 function drawChart(data){
-  if(priceChart) priceChart.destroy();
+  if(priceChart)priceChart.destroy();
   priceChart=new Chart(priceChartEl,{
     type:'bar',
     data:{
