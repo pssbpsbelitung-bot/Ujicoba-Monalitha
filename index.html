@@ -59,13 +59,11 @@ canvas{width:100%!important;height:300px!important}
   </div>
 </div>
 
-<!-- FILTER KOMODITAS -->
+<!-- FILTER KOMODITAS (BERDASARKAN BULAN) -->
 <div class="grid">
   <div class="card">
     <h3>Filter Komoditas (Opsional)</h3>
-    <select id="commoditySelect">
-      <option value="ALL">Semua Komoditas</option>
-    </select>
+    <select id="commoditySelect"></select>
   </div>
 </div>
 
@@ -85,19 +83,16 @@ const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx8
 
 let allData=[],priceChart,modePimpinan=false;
 
-/* ==== CSV PARSER AMAN (FIX UTAMA) ==== */
+/* ===== CSV PARSER AMAN ===== */
 function parseCSV(text){
-  const rows=[];
-  let cur=[],val='',inside=false;
-
+  const rows=[]; let cur=[],val='',inside=false;
   for(let c of text){
     if(c === '"') inside=!inside;
     else if(c === ',' && !inside){ cur.push(val); val=''; }
     else if(c === '\n' && !inside){ cur.push(val); rows.push(cur); cur=[]; val=''; }
     else val+=c;
   }
-  cur.push(val);
-  rows.push(cur);
+  cur.push(val); rows.push(cur);
   return rows;
 }
 
@@ -119,21 +114,30 @@ async function loadData(){
 }
 
 function init(){
+  const months=[...new Set(allData.map(d=>d.bulan))];
   monthSelect.innerHTML='';
-  commoditySelect.innerHTML='<option value="ALL">Semua Komoditas</option>';
+  months.forEach(b=>monthSelect.add(new Option(b,b)));
 
-  [...new Set(allData.map(d=>d.bulan))].forEach(b=>{
-    monthSelect.add(new Option(b,b));
-  });
+  monthSelect.onchange=()=>{
+    updateCommodityByMonth();
+    render();
+  };
 
-  [...new Set(allData.map(d=>d.komoditas))].forEach(k=>{
-    commoditySelect.add(new Option(k,k));
-  });
-
-  monthSelect.onchange=render;
+  updateCommodityByMonth();
   commoditySelect.onchange=render;
-
   render();
+}
+
+/* ===== INI FIX UTAMA ===== */
+function updateCommodityByMonth(){
+  const bulan=monthSelect.value;
+  const komoditas=[...new Set(
+    allData.filter(d=>d.bulan===bulan).map(d=>d.komoditas)
+  )];
+
+  commoditySelect.innerHTML='';
+  commoditySelect.add(new Option('Semua Komoditas','ALL'));
+  komoditas.forEach(k=>commoditySelect.add(new Option(k,k)));
 }
 
 function render(){
@@ -141,7 +145,7 @@ function render(){
   const kom=commoditySelect.value;
 
   let data=allData.filter(d=>d.bulan===bulan);
-  if(kom!=='ALL') data=data.filter(d=>d.komoditas===kom);
+  if(kom && kom!=='ALL') data=data.filter(d=>d.komoditas===kom);
 
   const map={};
   data.forEach(d=>{
