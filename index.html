@@ -28,6 +28,7 @@ canvas{width:100%!important;height:300px!important}
   display:inline-block;
   margin-top:6px;
 }
+small{color:#6b7280}
 </style>
 </head>
 
@@ -133,27 +134,34 @@ function render(){
   let ekstrem=0;
   let narasi=[];
 
-  Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([key,val])=>{
-    const rows=d.filter(x=>x.komoditas+'|'+x.kegiatan===key);
+  Object.entries(f)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,5)
+    .forEach(([key,val])=>{
+      const [komoditas,kegiatan]=key.split('|');
+      const rows=d.filter(x=>x.komoditas===komoditas && x.kegiatan===kegiatan);
 
-    const ac={};
-    rows.forEach(r=>ac[r.alasan]=(ac[r.alasan]||0)+1);
-    const alasan=Object.entries(ac).sort((a,b)=>b[1]-a[1])[0][0];
+      const ac={};
+      rows.forEach(r=>ac[r.alasan]=(ac[r.alasan]||0)+1);
+      const alasan=Object.entries(ac).sort((a,b)=>b[1]-a[1])[0][0];
 
-    const isEkstrem=val>avg*2;
-    if(isEkstrem) ekstrem++;
+      const isEkstrem=val>avg*2;
+      if(isEkstrem) ekstrem++;
 
-    const li=document.createElement('li');
-    li.innerHTML=`
-      <b>${key.split('|')[0]}</b><br>
-      Fenomena: <b>${alasan}</b><br>
-      Total perubahan: <b>${val.toLocaleString('id-ID')}</b>
-      ${isEkstrem?'<div class="extreme">Fenomena Ekstrem</div>':''}
-    `;
-    fenomenaList.appendChild(li);
+      const li=document.createElement('li');
+      li.innerHTML=`
+        <b>${komoditas}</b><br>
+        <small>Jenis Kegiatan: <b>${kegiatan}</b></small><br>
+        Fenomena: <b>${alasan}</b><br>
+        Total perubahan: <b>${val.toLocaleString('id-ID')}</b>
+        ${isEkstrem?'<div class="extreme">Fenomena Ekstrem</div>':''}
+      `;
+      fenomenaList.appendChild(li);
 
-    narasi.push(`Komoditas ${key.split('|')[0]} mengalami perubahan harga yang dipengaruhi oleh ${alasan.toLowerCase()} dengan total perubahan sebesar ${val.toLocaleString('id-ID')}.`);
-  });
+      narasi.push(
+        `Pada kegiatan ${kegiatan}, komoditas ${komoditas} mengalami perubahan harga yang dipengaruhi oleh ${alasan.toLowerCase()} dengan total perubahan sebesar ${val.toLocaleString('id-ID')}.`
+      );
+    });
 
   if(modePimpinan){
     kpiKomoditas.innerText=new Set(allData.map(x=>x.komoditas)).size;
@@ -169,13 +177,19 @@ function drawCharts(d){
   if(priceChart)priceChart.destroy();
   priceChart=new Chart(priceChartEl,{
     type:'bar',
-    data:{labels:d.map(x=>x.bulan),datasets:[{data:d.map(x=>x.selisih)}]}
+    data:{
+      labels:d.map(x=>x.bulan),
+      datasets:[{data:d.map(x=>x.selisih)}]
+    }
   });
 
   if(yearChart)yearChart.destroy();
   yearChart=new Chart(yearChartEl,{
     type:'line',
-    data:{labels:d.map(x=>x.bulan),datasets:[{data:d.map(x=>x.hargaBaru)}]}
+    data:{
+      labels:d.map(x=>x.bulan),
+      datasets:[{data:d.map(x=>x.hargaBaru)}]
+    }
   });
 }
 
