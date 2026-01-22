@@ -9,9 +9,9 @@
 <style>
 body{font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;padding:24px}
 .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:20px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
-select{padding:8px;width:100%;border-radius:8px}
+select{padding:8px;width:100%;border-radius:8px;margin-bottom:8px}
 canvas{height:340px!important}
-h3{margin-top:0}
+small{color:#6b7280}
 </style>
 </head>
 
@@ -28,13 +28,14 @@ h3{margin-top:0}
 </div>
 
 <div class="card">
-  <h3>Pilih Komoditas (Grafik)</h3>
+  <h3>Filter Grafik</h3>
   <select id="commoditySelect"></select>
+  <select id="activitySelect"></select>
 </div>
 
 <div class="card">
   <h3>Pergerakan Harga Komoditas<br>
-    <small style="color:#6b7280">Perbandingan Bulan-1 vs Bulan Terpilih</small>
+    <small>Perbandingan Bulan Sebelumnya vs Bulan Terpilih</small>
   </h3>
   <canvas id="priceChart"></canvas>
 </div>
@@ -44,109 +45,155 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
-let data=[],chart,months=[];
+/* === URUTAN BULAN RESMI === */
+const MONTH_ORDER = [
+  'Januari','Februari','Maret','April','Mei','Juni',
+  'Juli','Agustus','September','Oktober','November','Desember'
+];
 
-function parseCSV(t){
-  const r=[],c=[];let v='',q=false;
-  for(const x of t){
-    if(x=='"')q=!q;
-    else if(x==','&&!q){c.push(v);v='';}
-    else if(x=='\n'&&!q){c.push(v);r.push(c.splice(0));v='';}
-    else v+=x;
+let allData=[],chart,fenomenaBulanan=[];
+
+/* CSV parser */
+function parseCSV(text){
+  const rows=[],cur=[]; let v='',q=false;
+  for(const c of text){
+    if(c === '"') q=!q;
+    else if(c===',' && !q){cur.push(v);v='';}
+    else if(c==='\n' && !q){cur.push(v);rows.push(cur.splice(0));v='';}
+    else v+=c;
   }
-  c.push(v);r.push(c);
-  return r;
+  cur.push(v); rows.push(cur);
+  return rows;
 }
 
-fetch(CSV_URL).then(r=>r.text()).then(t=>{
-  const rows=parseCSV(t).slice(1);
-  data=rows.map(c=>({
+fetch(CSV_URL).then(r=>r.text()).then(text=>{
+  const rows=parseCSV(text).slice(1);
+  allData=rows.map(c=>({
     bulan:c[2],
     kegiatan:c[1],
     komoditas:c[5],
     selisih:+c[8],
     alasan:c[9]||'-'
-  })).filter(d=>d.bulan&&d.komoditas);
+  })).filter(d=>d.bulan && d.komoditas);
 
-  months=[...new Set(data.map(d=>d.bulan))].sort();
   init();
 });
 
 function init(){
   const ms=document.getElementById('monthSelect');
+  const months=[...new Set(allData.map(d=>d.bulan))]
+    .sort((a,b)=>MONTH_ORDER.indexOf(a)-MONTH_ORDER.indexOf(b));
+
   months.forEach(m=>ms.add(new Option(m,m)));
   ms.onchange=onMonthChange;
   onMonthChange();
 }
 
+function getPreviousMonth(month){
+  const idx=MONTH_ORDER.indexOf(month);
+  return idx>0 ? MONTH_ORDER[idx-1] : null;
+}
+
 function onMonthChange(){
   const bulan=document.getElementById('monthSelect').value;
-  const bulanData=data.filter(d=>d.bulan===bulan);
+  const dataBulan=allData.filter(d=>d.bulan===bulan);
 
-  // === FENOMENA (FREEZE) ===
+  /* === FENOMENA (TIDAK DIUBAH) === */
   const map={};
-  bulanData.forEach(d=>{
-    const k=d.komoditas+'|'+d.kegiatan;
-    map[k]=(map[k]||0)+Math.abs(d.selisih);
+  dataBulan.forEach(d=>{
+    const key=d.komoditas+'|'+d.kegiatan;
+    map[key]=(map[key]||0)+Math.abs(d.selisih);
   });
 
-  const top=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const ul=document.getElementById('fenomenaList');
-  ul.innerHTML='';
-  top.forEach(([k,v])=>{
-    const [kom,keg]=k.split('|');
-    ul.innerHTML+=`<li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
-  });
+  fenomenaBulanan=Object.entries(map)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,5);
 
-  // === KOMODITAS ===
+  renderFenomena(dataBulan);
+
+  /* === KOMODITAS === */
   const cs=document.getElementById('commoditySelect');
   cs.innerHTML='';
-  [...new Set(bulanData.map(d=>d.komoditas))]
+  [...new Set(dataBulan.map(d=>d.komoditas))]
     .forEach(k=>cs.add(new Option(k,k)));
-  cs.onchange=drawChart;
+  cs.onchange=onCommodityChange;
+
+  onCommodityChange();
+}
+
+function onCommodityChange(){
+  const bulan=document.getElementById('monthSelect').value;
+  const kom=document.getElementById('commoditySelect').value;
+
+  const dataFilter=allData.filter(d=>d.bulan===bulan && d.komoditas===kom);
+
+  const as=document.getElementById('activitySelect');
+  as.innerHTML='';
+  [...new Set(dataFilter.map(d=>d.kegiatan))]
+    .forEach(k=>as.add(new Option(k,k)));
+  as.onchange=drawChart;
 
   drawChart();
 }
 
+function renderFenomena(dataBulan){
+  const ul=document.getElementById('fenomenaList');
+  ul.innerHTML='';
+  fenomenaBulanan.forEach(([key,val])=>{
+    const [kom,keg]=key.split('|');
+    const rows=dataBulan.filter(d=>d.komoditas===kom && d.kegiatan===keg);
+
+    const alasan=rows.reduce((a,b)=>{
+      a[b.alasan]=(a[b.alasan]||0)+1;
+      return a;
+    },{});
+
+    const topAlasan=Object.entries(alasan)
+      .sort((a,b)=>b[1]-a[1])[0][0];
+
+    ul.innerHTML+=`
+      <li>
+        <b>${kom}</b><br>
+        <small>Jenis Kegiatan: <b>${keg}</b></small><br>
+        Fenomena: <b>${topAlasan}</b><br>
+        Total Perubahan: <b>${val.toLocaleString('id-ID')}</b>
+      </li>`;
+  });
+}
+
 function drawChart(){
   const bulan=document.getElementById('monthSelect').value;
-  const idx=months.indexOf(bulan);
-  if(idx<=0) return;
+  const prev=getPreviousMonth(bulan);
 
-  const prev=months[idx-1];
   const kom=document.getElementById('commoditySelect').value;
+  const keg=document.getElementById('activitySelect').value;
 
-  const dPrev=data.filter(d=>d.bulan===prev&&d.komoditas===kom);
-  const dNow=data.filter(d=>d.bulan===bulan&&d.komoditas===kom);
+  const dNow=allData.filter(d=>d.bulan===bulan && d.komoditas===kom && d.kegiatan===keg);
+  const dPrev=prev ? allData.filter(d=>d.bulan===prev && d.komoditas===kom && d.kegiatan===keg) : [];
 
-  const labels=[...new Set([...dPrev,...dNow].map(d=>d.kegiatan))];
-
-  if(chart)chart.destroy();
+  if(chart) chart.destroy();
   chart=new Chart(document.getElementById('priceChart'),{
     type:'line',
     data:{
-      labels,
+      labels:[keg],
       datasets:[
-        {
-          label:`${prev}`,
-          data:labels.map(l=>(dPrev.find(x=>x.kegiatan===l)||{}).selisih||0),
+        ...(prev ? [{
+          label:prev,
+          data:[dPrev.reduce((s,d)=>s+d.selisih,0)],
           borderColor:'#9ca3af',
           backgroundColor:'rgba(156,163,175,0.15)',
-          tension:0.35,
-          pointRadius:4
-        },
+          pointRadius:5
+        }] : []),
         {
-          label:`${bulan}`,
-          data:labels.map(l=>(dNow.find(x=>x.kegiatan===l)||{}).selisih||0),
+          label:bulan,
+          data:[dNow.reduce((s,d)=>s+d.selisih,0)],
           borderColor:'#2563eb',
           backgroundColor:'rgba(37,99,235,0.2)',
-          tension:0.35,
-          pointRadius:5
+          pointRadius:6
         }
       ]
     },
     options:{
-      responsive:true,
       plugins:{
         legend:{position:'bottom'},
         tooltip:{
@@ -165,6 +212,7 @@ function drawChart(){
     }
   });
 }
+
 });
 </script>
 
