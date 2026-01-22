@@ -1,128 +1,191 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dashboard Monitoring Harga Monalitha</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="UTF-8">
+<title>Dashboard Monitoring Harga – Mode Pimpinan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-body{font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;margin:0;padding:24px}
-h1{margin-bottom:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-bottom:24px}
-.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
-.kpi{font-size:28px;font-weight:bold}
-.kpi-label{color:#6b7280;font-size:14px}
-select,button{padding:8px;border-radius:8px;border:1px solid #ccc;width:100%}
-button{cursor:pointer;background:#2563eb;color:#fff;border:none}
-button.secondary{background:#374151}
-canvas{width:100%!important;height:300px!important}
-.hide{display:none}
+:root{
+  --primary:#1f2937;
+  --danger:#991b1b;
+  --soft:#f3f4f6;
+}
+*{box-sizing:border-box}
+body{
+  font-family:Arial, sans-serif;
+  background:#f9fafb;
+  margin:0;
+  padding:24px;
+}
+h1,h2,h3{margin:0 0 8px}
+.container{
+  display:grid;
+  gap:20px;
+}
+.card{
+  background:#fff;
+  padding:20px;
+  border-radius:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,.08);
+}
+.header{
+  background:#1f2937;
+  color:white;
+}
+.grid-3{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:16px;
+}
+.big-number{
+  font-size:28px;
+  font-weight:bold;
+}
+ul{padding-left:18px}
+li{margin-bottom:16px}
+.extreme{
+  display:inline-block;
+  margin-top:6px;
+  background:#fee2e2;
+  color:#991b1b;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:bold;
+}
+.hidden{display:none}
 </style>
 </head>
+
 <body>
+<div class="container">
 
-<h1>📊 Dashboard Monitoring & Evaluasi Harga (Monalitha)</h1>
-<button id="modeBtn" class="secondary">Aktifkan Mode Pimpinan</button>
+  <!-- HEADER -->
+  <div class="card header">
+    <h1>Ringkasan Perkembangan Harga Komoditas</h1>
+    <p>Mode Pimpinan – Monitoring Strategis</p>
+  </div>
 
-<!-- KPI PIMPINAN -->
-<div id="kpiRow" class="grid hide">
-  <div class="card"><div class="kpi" id="kpiKomoditas">0</div><div class="kpi-label">Komoditas Dipantau</div></div>
-  <div class="card"><div class="kpi" id="kpiEntri">0</div><div class="kpi-label">Total Entri Bulan Ini</div></div>
-  <div class="card"><div class="kpi" id="kpiPetugas">0</div><div class="kpi-label">Petugas Aktif</div></div>
-  <div class="card"><div class="kpi" id="kpiNaik">-</div><div class="kpi-label">Kenaikan Tertinggi</div></div>
+  <!-- IKHTISAR -->
+  <div class="grid-3">
+    <div class="card">
+      <h3>Komoditas Paling Bergejolak</h3>
+      <div class="big-number" id="topKomoditas">-</div>
+    </div>
+    <div class="card">
+      <h3>Total Perubahan Harga</h3>
+      <div class="big-number" id="totalPerubahan">-</div>
+    </div>
+    <div class="card">
+      <h3>Fenomena Ekstrem</h3>
+      <div class="big-number" id="jumlahEkstrem">-</div>
+    </div>
+  </div>
+
+  <!-- FENOMENA UTAMA -->
+  <div class="card">
+    <h2>Fenomena Utama Perubahan Harga</h2>
+    <ul id="fenomenaList"></ul>
+  </div>
+
+  <!-- NARASI -->
+  <div class="card hidden" id="narasiPimpinan">
+    <h2>Ringkasan Analisis</h2>
+    <p id="narasiText"></p>
+  </div>
+
 </div>
-
-<!-- FILTER OPERATOR -->
-<div id="filterRow" class="grid">
-  <div class="card"><h3>Komoditas</h3><select id="commoditySelect"></select></div>
-  <div class="card"><h3>Bulan</h3><select id="monthSelect"></select></div>
-</div>
-
-<!-- BARIS 1 -->
-<div class="grid"><div class="card"><h3>Perubahan Harga per Komoditas</h3><canvas id="priceChart"></canvas></div></div>
-
-<!-- BARIS 2 -->
-<div class="grid"><div class="card"><h3>Fenomena Perubahan Harga</h3><canvas id="diffChart"></canvas></div></div>
-
-<!-- BARIS 3 -->
-<div class="grid"><div class="card"><h3>Progres Pendataan per Petugas</h3><canvas id="petugasChart"></canvas></div></div>
-
-<!-- BARIS 4 -->
-<div class="grid"><div class="card"><h3>Pergerakan Harga Tahunan</h3><canvas id="yearChart"></canvas></div></div>
-
-<!-- NARASI -->
-<div id="narasi" class="card hide"></div>
 
 <script>
-const CSV_URL = "PASTE_CSV_URL_DI_SINI";
-let priceChart,diffChart,petugasChart,yearChart,modePimpinan=false;
+// ================== KONFIGURASI ==================
+const CSV_URL = "PASTE_LINK_CSV_GOOGLE_SHEETS_DI_SINI";
 
-async function loadData(){
-  const res = await fetch(CSV_URL);
-  const text = await res.text();
-  const rows = text.split("\n").slice(1);
-  const data = rows.map(r=>{
-    const c=r.split(',');
-    return{waktu:c[0],bulan:c[2],petugas:c[4],komoditas:c[5],hargaLama:+c[6],hargaBaru:+c[7],selisih:+c[8]}
-  }).filter(d=>d.komoditas);
-  init(data);
-}
+// ================== MODE ==================
+const isPimpinan = new URLSearchParams(window.location.search).get('mode') === 'pimpinan';
 
-function init(data){
-  const cs=document.getElementById('commoditySelect');
-  const ms=document.getElementById('monthSelect');
-  const kom=[...new Set(data.map(d=>d.komoditas))];
-  const bln=[...new Set(data.map(d=>d.bulan))];
-  kom.forEach(x=>cs.add(new Option(x,x)));
-  bln.forEach(x=>ms.add(new Option(x,x)));
+// ================== LOAD DATA ==================
+fetch(CSV_URL)
+  .then(r=>r.text())
+  .then(t=>{
+    const rows = t.split('\n').slice(1);
+    const d = rows.map(r=>{
+      const c = r.split(',');
+      return{
+        kegiatan:c[1],
+        bulan:c[2],
+        petugas:c[4],
+        komoditas:c[5],
+        hargaLama:+c[6],
+        hargaBaru:+c[7],
+        selisih:+c[8],
+        alasan:c[9] || 'Tidak ada keterangan'
+      }
+    }).filter(x=>x.komoditas);
 
-  function render(){
-    const k=cs.value,m=ms.value;
-    const d=data.filter(x=>x.komoditas===k);
+    render(d);
+  });
 
-    if(priceChart)priceChart.destroy();
-    priceChart=new Chart(priceChartCtx(),{type:'line',data:{labels:d.map(x=>x.waktu),datasets:[{label:'Harga Lama',data:d.map(x=>x.hargaLama)},{label:'Harga Sekarang',data:d.map(x=>x.hargaBaru)}]}});
+function render(d){
+  const fenomena = {};
+  d.forEach(x=>{
+    const key = x.komoditas+'|'+x.kegiatan;
+    fenomena[key]=(fenomena[key]||0)+Math.abs(x.selisih);
+  });
 
-    if(diffChart)diffChart.destroy();
-    diffChart=new Chart(diffChartCtx(),{type:'bar',data:{labels:d.map(x=>x.waktu),datasets:[{label:'Selisih',data:d.map(x=>x.selisih)}]}});
+  const nilai = Object.values(fenomena);
+  const rata2 = nilai.reduce((a,b)=>a+b,0)/nilai.length;
 
-    const p=data.filter(x=>x.bulan===m);
-    const cnt={};p.forEach(x=>cnt[x.petugas]=(cnt[x.petugas]||0)+1);
-    if(petugasChart)petugasChart.destroy();
-    petugasChart=new Chart(petugasChartCtx(),{type:'bar',data:{labels:Object.keys(cnt),datasets:[{label:'Jumlah Entri',data:Object.values(cnt)}]}});
+  const list = document.getElementById('fenomenaList');
+  const narasi = [];
+  let ekstremCount = 0;
 
-    if(yearChart)yearChart.destroy();
-    yearChart=new Chart(yearChartCtx(),{type:'line',data:{labels:bln,datasets:[{label:'Rata-rata Harga',data:bln.map(b=>{
-      const x=data.filter(d=>d.komoditas===k&&d.bulan===b);return x.length?x.reduce((a,c)=>a+c.hargaBaru,0)/x.length:0;
-    })}]}});
+  const sorted = Object.entries(fenomena).sort((a,b)=>b[1]-a[1]);
 
-    if(modePimpinan){
-      document.getElementById('kpiKomoditas').innerText=kom.length;
-      document.getElementById('kpiEntri').innerText=p.length;
-      document.getElementById('kpiPetugas').innerText=Object.keys(cnt).length;
-      const naik=d.reduce((a,b)=>b.selisih>a.selisih?b:a,d[0]);
-      document.getElementById('kpiNaik').innerText=naik?naik.komoditas:'-';
-      document.getElementById('narasi').innerHTML=`<b>Narasi Otomatis:</b><br>Komoditas ${k} menunjukkan perubahan harga dengan selisih maksimum ${naik.selisih}. Petugas aktif bulan ${m} sebanyak ${Object.keys(cnt).length} orang.`;
-    }
+  // IKHTISAR
+  document.getElementById('topKomoditas').innerText = sorted[0][0].split('|')[0];
+  document.getElementById('totalPerubahan').innerText =
+    nilai.reduce((a,b)=>a+b,0).toLocaleString('id-ID');
+
+  sorted.slice(0,5).forEach(([key,val])=>{
+    const [komoditas,kegiatan] = key.split('|');
+    const rows = d.filter(x=>x.komoditas===komoditas && x.kegiatan===kegiatan);
+
+    // alasan terbanyak
+    const ac = {};
+    rows.forEach(r=>{
+      ac[r.alasan]=(ac[r.alasan]||0)+1;
+    });
+    const alasanUtama = Object.entries(ac).sort((a,b)=>b[1]-a[1])[0][0];
+
+    const isEkstrem = val > rata2*2;
+    if(isEkstrem) ekstremCount++;
+
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <b>${komoditas}</b> (${kegiatan})<br>
+      Fenomena: <b>${alasanUtama}</b><br>
+      Total perubahan: <b>${val.toLocaleString('id-ID')}</b>
+      ${isEkstrem?'<div class="extreme">Fenomena Ekstrem</div>':''}
+    `;
+    list.appendChild(li);
+
+    narasi.push(
+      `Komoditas ${komoditas} pada kegiatan ${kegiatan} mengalami perubahan harga yang didominasi oleh faktor ${alasanUtama.toLowerCase()}, dengan total perubahan sebesar ${val.toLocaleString('id-ID')}.`
+    );
+  });
+
+  document.getElementById('jumlahEkstrem').innerText = ekstremCount;
+
+  // NARASI
+  if(isPimpinan){
+    document.getElementById('narasiPimpinan').classList.remove('hidden');
+    document.getElementById('narasiText').innerText =
+      narasi.join(' ') + (ekstremCount
+        ? ' Fenomena ekstrem memerlukan perhatian dan tindak lanjut lebih lanjut.'
+        : '');
   }
-
-  cs.onchange=render;ms.onchange=render;render();
 }
-
-function priceChartCtx(){return document.getElementById('priceChart');}
-function diffChartCtx(){return document.getElementById('diffChart');}
-function petugasChartCtx(){return document.getElementById('petugasChart');}
-function yearChartCtx(){return document.getElementById('yearChart');}
-
-modeBtn.onclick=()=>{
-  modePimpinan=!modePimpinan;
-  document.getElementById('kpiRow').classList.toggle('hide');
-  document.getElementById('filterRow').classList.toggle('hide');
-  document.getElementById('narasi').classList.toggle('hide');
-  modeBtn.innerText=modePimpinan?'Matikan Mode Pimpinan':'Aktifkan Mode Pimpinan';
-};
-
-loadData();
 </script>
 </body>
 </html>
