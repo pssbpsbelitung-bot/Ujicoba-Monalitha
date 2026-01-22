@@ -29,7 +29,7 @@ small{color:#6b7280}
   </div>
 </div>
 
-<!-- FENOMENA (HANYA BULAN) -->
+<!-- FENOMENA -->
 <div class="grid">
   <div class="card">
     <h3>5 Fenomena Perubahan Harga Tertinggi (Bulanan)</h3>
@@ -54,6 +54,8 @@ small{color:#6b7280}
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', () => {
+
 const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
 let allData=[],fenomenaBulanan=[],priceChart;
@@ -88,7 +90,11 @@ async function loadData(){
 }
 
 function init(){
+  const monthSelect=document.getElementById('monthSelect');
+  const commoditySelect=document.getElementById('commoditySelect');
+
   const bulan=[...new Set(allData.map(d=>d.bulan))];
+  monthSelect.innerHTML='';
   bulan.forEach(b=>monthSelect.add(new Option(b,b)));
 
   monthSelect.onchange=onMonthChange;
@@ -97,14 +103,11 @@ function init(){
   onMonthChange();
 }
 
-/* =========================
-   BULAN BERUBAH → HITUNG FENOMENA SEKALI
-   ========================= */
 function onMonthChange(){
-  const bulan=monthSelect.value;
+  const bulan=document.getElementById('monthSelect').value;
   const dataBulan=allData.filter(d=>d.bulan===bulan);
 
-  // HITUNG FENOMENA BULANAN (FREEZE)
+  // hitung fenomena BULANAN (freeze)
   const map={};
   dataBulan.forEach(d=>{
     const key=d.komoditas+'|'+d.kegiatan;
@@ -117,7 +120,8 @@ function onMonthChange(){
 
   renderFenomena(dataBulan);
 
-  // Update komoditas HANYA untuk grafik
+  // isi komoditas untuk grafik
+  const commoditySelect=document.getElementById('commoditySelect');
   const komoditas=[...new Set(dataBulan.map(d=>d.komoditas))];
   commoditySelect.innerHTML='';
   komoditas.forEach(k=>commoditySelect.add(new Option(k,k)));
@@ -125,11 +129,9 @@ function onMonthChange(){
   drawChart();
 }
 
-/* =========================
-   FENOMENA TIDAK PERNAH DIUBAH OLEH KOMODITAS
-   ========================= */
 function renderFenomena(dataBulan){
-  fenomenaList.innerHTML='';
+  const list=document.getElementById('fenomenaList');
+  list.innerHTML='';
   fenomenaBulanan.forEach(([key,val])=>{
     const [komoditas,kegiatan]=key.split('|');
     const rows=dataBulan.filter(d=>d.komoditas===komoditas && d.kegiatan===kegiatan);
@@ -143,20 +145,17 @@ function renderFenomena(dataBulan){
       Fenomena: <b>${topAlasan}</b><br>
       Total Perubahan: <b>${val.toLocaleString('id-ID')}</b>
     `;
-    fenomenaList.appendChild(li);
+    list.appendChild(li);
   });
 }
 
-/* =========================
-   KOMODITAS → GRAFIK SAJA
-   ========================= */
 function drawChart(){
-  const bulan=monthSelect.value;
-  const kom=commoditySelect.value;
+  const bulan=document.getElementById('monthSelect').value;
+  const kom=document.getElementById('commoditySelect').value;
   const data=allData.filter(d=>d.bulan===bulan && d.komoditas===kom);
 
   if(priceChart) priceChart.destroy();
-  priceChart=new Chart(priceChartEl,{
+  priceChart=new Chart(document.getElementById('priceChart'),{
     type:'bar',
     data:{
       labels:data.map(d=>d.kegiatan),
@@ -165,8 +164,9 @@ function drawChart(){
   });
 }
 
-const priceChartEl=document.getElementById('priceChart');
 loadData();
+
+});
 </script>
 
 </body>
