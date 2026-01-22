@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dashboard Monitoring Harga Monalitha</title>
+<title>Dashboard Monitoring Harga (Basis Bulan)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -16,7 +16,6 @@ h1{margin-bottom:12px}
 select,button{padding:8px;border-radius:8px;border:1px solid #ccc;width:100%}
 button{cursor:pointer;background:#2563eb;color:#fff;border:none}
 button.secondary{background:#374151}
-canvas{width:100%!important;height:300px!important}
 .hide{display:none}
 .extreme{
   background:#fee2e2;
@@ -29,48 +28,52 @@ canvas{width:100%!important;height:300px!important}
   margin-top:6px;
 }
 small{color:#6b7280}
+canvas{width:100%!important;height:300px!important}
 </style>
 </head>
 
 <body>
 
-<h1>📊 Dashboard Monitoring & Evaluasi Harga (Monalitha)</h1>
+<h1>📊 Dashboard Monitoring & Evaluasi Harga</h1>
 <button id="modeBtn" class="secondary">Aktifkan Mode Pimpinan</button>
 
-<!-- KPI PIMPINAN -->
+<!-- KPI -->
 <div id="kpiRow" class="grid hide">
-  <div class="card"><div class="kpi" id="kpiKomoditas">0</div><div class="kpi-label">Komoditas Dipantau</div></div>
-  <div class="card"><div class="kpi" id="kpiEntri">0</div><div class="kpi-label">Total Entri Bulan Ini</div></div>
+  <div class="card"><div class="kpi" id="kpiFenomena">0</div><div class="kpi-label">Fenomena Dianalisis</div></div>
   <div class="card"><div class="kpi" id="kpiEkstrem">0</div><div class="kpi-label">Fenomena Ekstrem</div></div>
 </div>
 
-<!-- FILTER -->
-<div id="filterRow" class="grid">
-  <div class="card"><h3>Komoditas</h3><select id="commoditySelect"></select></div>
-  <div class="card"><h3>Bulan</h3><select id="monthSelect"></select></div>
-</div>
-
-<!-- BARIS 1 -->
-<div class="grid mode-teknis">
+<!-- FILTER UTAMA -->
+<div class="grid">
   <div class="card">
-    <h3>Perubahan Harga per Komoditas</h3>
-    <canvas id="priceChart"></canvas>
+    <h3>Pilih Bulan</h3>
+    <select id="monthSelect"></select>
   </div>
 </div>
 
-<!-- BARIS 2 -->
+<!-- FENOMENA -->
 <div class="grid">
   <div class="card">
-    <h3>Fenomena Perubahan Harga</h3>
+    <h3>5 Fenomena Perubahan Harga Tertinggi</h3>
     <ul id="fenomenaList"></ul>
   </div>
 </div>
 
-<!-- BARIS 3 -->
+<!-- FILTER KOMODITAS (DRILL DOWN) -->
+<div class="grid">
+  <div class="card">
+    <h3>Filter Komoditas (Opsional)</h3>
+    <select id="commoditySelect">
+      <option value="ALL">Semua Komoditas</option>
+    </select>
+  </div>
+</div>
+
+<!-- GRAFIK -->
 <div class="grid mode-teknis">
   <div class="card">
-    <h3>Pergerakan Harga Tahunan</h3>
-    <canvas id="yearChart"></canvas>
+    <h3>Pergerakan Harga</h3>
+    <canvas id="priceChart"></canvas>
   </div>
 </div>
 
@@ -78,24 +81,23 @@ small{color:#6b7280}
 <div id="narasi" class="card hide"></div>
 
 <script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
+const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
-let priceChart,yearChart,modePimpinan=false;
-let allData=[];
+let allData=[],priceChart,modePimpinan=false;
 
 async function loadData(){
-  const res = await fetch(CSV_URL);
-  const text = await res.text();
-  const rows = text.split("\n").slice(1);
+  const res=await fetch(CSV_URL);
+  const text=await res.text();
+  const rows=text.split("\n").slice(1);
 
-  allData = rows.map(r=>{
+  allData=rows.map(r=>{
     const c=r.split(',');
     return{
       bulan:c[2],
       kegiatan:c[1],
       komoditas:c[5],
       selisih:+c[8],
-      hargaBaru:+c[7],
+      harga:+c[7],
       alasan:c[9]||'Tidak ada keterangan'
     }
   }).filter(d=>d.komoditas);
@@ -104,46 +106,47 @@ async function loadData(){
 }
 
 function init(){
-  const kom=[...new Set(allData.map(d=>d.komoditas))];
-  const bln=[...new Set(allData.map(d=>d.bulan))];
+  const months=[...new Set(allData.map(d=>d.bulan))];
+  const commodities=[...new Set(allData.map(d=>d.komoditas))];
 
-  kom.forEach(x=>commoditySelect.add(new Option(x,x)));
-  bln.forEach(x=>monthSelect.add(new Option(x,x)));
+  months.forEach(m=>monthSelect.add(new Option(m,m)));
+  commodities.forEach(k=>commoditySelect.add(new Option(k,k)));
 
-  commoditySelect.onchange=render;
   monthSelect.onchange=render;
+  commoditySelect.onchange=render;
+
   render();
 }
 
 function render(){
-  const k=commoditySelect.value;
-  const m=monthSelect.value;
+  const bulan=monthSelect.value;
+  const komoditas=commoditySelect.value;
 
-  const d=allData.filter(x=>x.komoditas===k);
-  const p=allData.filter(x=>x.bulan===m);
+  let data=allData.filter(d=>d.bulan===bulan);
+  if(komoditas!=='ALL') data=data.filter(d=>d.komoditas===komoditas);
 
-  // ===== FENOMENA =====
-  const f={};
-  d.forEach(x=>{
-    const key=x.komoditas+'|'+x.kegiatan;
-    f[key]=(f[key]||0)+Math.abs(x.selisih);
+  const map={};
+  data.forEach(d=>{
+    const key=d.komoditas+'|'+d.kegiatan;
+    map[key]=(map[key]||0)+Math.abs(d.selisih);
   });
 
-  const avg=Object.values(f).reduce((a,b)=>a+b,0)/Object.values(f).length;
+  const avg=Object.values(map).reduce((a,b)=>a+b,0)/Object.values(map).length;
   fenomenaList.innerHTML='';
   let ekstrem=0;
   let narasi=[];
 
-  Object.entries(f)
+  Object.entries(map)
     .sort((a,b)=>b[1]-a[1])
     .slice(0,5)
     .forEach(([key,val])=>{
       const [komoditas,kegiatan]=key.split('|');
-      const rows=d.filter(x=>x.komoditas===komoditas && x.kegiatan===kegiatan);
+      const rows=data.filter(d=>d.komoditas===komoditas && d.kegiatan===kegiatan);
 
-      const ac={};
-      rows.forEach(r=>ac[r.alasan]=(ac[r.alasan]||0)+1);
-      const alasan=Object.entries(ac).sort((a,b)=>b[1]-a[1])[0][0];
+      const alasan=rows.reduce((a,b)=>{
+        a[b.alasan]=(a[b.alasan]||0)+1; return a;
+      },{});
+      const topAlasan=Object.entries(alasan).sort((a,b)=>b[1]-a[1])[0][0];
 
       const isEkstrem=val>avg*2;
       if(isEkstrem) ekstrem++;
@@ -152,43 +155,31 @@ function render(){
       li.innerHTML=`
         <b>${komoditas}</b><br>
         <small>Jenis Kegiatan: <b>${kegiatan}</b></small><br>
-        Fenomena: <b>${alasan}</b><br>
-        Total perubahan: <b>${val.toLocaleString('id-ID')}</b>
+        Fenomena: <b>${topAlasan}</b><br>
+        Total Perubahan: <b>${val.toLocaleString('id-ID')}</b>
         ${isEkstrem?'<div class="extreme">Fenomena Ekstrem</div>':''}
       `;
       fenomenaList.appendChild(li);
 
-      narasi.push(
-        `Pada kegiatan ${kegiatan}, komoditas ${komoditas} mengalami perubahan harga yang dipengaruhi oleh ${alasan.toLowerCase()} dengan total perubahan sebesar ${val.toLocaleString('id-ID')}.`
-      );
+      narasi.push(`Pada bulan ${bulan}, komoditas ${komoditas} pada kegiatan ${kegiatan} mengalami perubahan harga signifikan akibat ${topAlasan.toLowerCase()}.`);
     });
 
   if(modePimpinan){
-    kpiKomoditas.innerText=new Set(allData.map(x=>x.komoditas)).size;
-    kpiEntri.innerText=p.length;
+    kpiFenomena.innerText=Object.keys(map).length;
     kpiEkstrem.innerText=ekstrem;
-    narasi.innerHTML='<b>Ringkasan Analisis:</b><br>'+narasi.join(' ');
+    narasiEl.innerHTML='<b>Ringkasan:</b><br>'+narasi.join(' ');
   }
 
-  drawCharts(d);
+  drawChart(data);
 }
 
-function drawCharts(d){
-  if(priceChart)priceChart.destroy();
+function drawChart(data){
+  if(priceChart) priceChart.destroy();
   priceChart=new Chart(priceChartEl,{
     type:'bar',
     data:{
-      labels:d.map(x=>x.bulan),
-      datasets:[{data:d.map(x=>x.selisih)}]
-    }
-  });
-
-  if(yearChart)yearChart.destroy();
-  yearChart=new Chart(yearChartEl,{
-    type:'line',
-    data:{
-      labels:d.map(x=>x.bulan),
-      datasets:[{data:d.map(x=>x.hargaBaru)}]
+      labels:data.map(d=>d.komoditas),
+      datasets:[{data:data.map(d=>d.selisih)}]
     }
   });
 }
@@ -196,14 +187,13 @@ function drawCharts(d){
 modeBtn.onclick=()=>{
   modePimpinan=!modePimpinan;
   kpiRow.classList.toggle('hide');
-  filterRow.classList.toggle('hide');
-  narasi.classList.toggle('hide');
+  narasiEl.classList.toggle('hide');
   document.querySelectorAll('.mode-teknis').forEach(e=>e.classList.toggle('hide'));
   modeBtn.innerText=modePimpinan?'Matikan Mode Pimpinan':'Aktifkan Mode Pimpinan';
 };
 
 const priceChartEl=document.getElementById('priceChart');
-const yearChartEl=document.getElementById('yearChart');
+const narasiEl=document.getElementById('narasi');
 
 loadData();
 </script>
