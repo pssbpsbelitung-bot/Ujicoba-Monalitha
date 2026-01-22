@@ -40,7 +40,6 @@ canvas{width:100%!important;height:300px!important}
 <div id="kpiRow" class="grid hide">
   <div class="card"><div class="kpi" id="kpiKomoditas">0</div><div class="kpi-label">Komoditas Dipantau</div></div>
   <div class="card"><div class="kpi" id="kpiEntri">0</div><div class="kpi-label">Total Entri Bulan Ini</div></div>
-  <div class="card"><div class="kpi" id="kpiPetugas">0</div><div class="kpi-label">Petugas Aktif</div></div>
   <div class="card"><div class="kpi" id="kpiEkstrem">0</div><div class="kpi-label">Fenomena Ekstrem</div></div>
 </div>
 
@@ -52,7 +51,10 @@ canvas{width:100%!important;height:300px!important}
 
 <!-- BARIS 1 -->
 <div class="grid mode-teknis">
-  <div class="card"><h3>Perubahan Harga per Komoditas</h3><canvas id="priceChart"></canvas></div>
+  <div class="card">
+    <h3>Perubahan Harga per Komoditas</h3>
+    <canvas id="priceChart"></canvas>
+  </div>
 </div>
 
 <!-- BARIS 2 -->
@@ -65,12 +67,10 @@ canvas{width:100%!important;height:300px!important}
 
 <!-- BARIS 3 -->
 <div class="grid mode-teknis">
-  <div class="card"><h3>Progres Pendataan per Petugas</h3><canvas id="petugasChart"></canvas></div>
-</div>
-
-<!-- BARIS 4 -->
-<div class="grid mode-teknis">
-  <div class="card"><h3>Pergerakan Harga Tahunan</h3><canvas id="yearChart"></canvas></div>
+  <div class="card">
+    <h3>Pergerakan Harga Tahunan</h3>
+    <canvas id="yearChart"></canvas>
+  </div>
 </div>
 
 <!-- NARASI -->
@@ -79,7 +79,7 @@ canvas{width:100%!important;height:300px!important}
 <script>
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
-let priceChart,petugasChart,yearChart,modePimpinan=false;
+let priceChart,yearChart,modePimpinan=false;
 let allData=[];
 
 async function loadData(){
@@ -90,14 +90,11 @@ async function loadData(){
   allData = rows.map(r=>{
     const c=r.split(',');
     return{
-      waktu:c[0],
-      kegiatan:c[1],
       bulan:c[2],
-      petugas:c[4],
+      kegiatan:c[1],
       komoditas:c[5],
-      hargaLama:+c[6],
-      hargaBaru:+c[7],
       selisih:+c[8],
+      hargaBaru:+c[7],
       alasan:c[9]||'Tidak ada keterangan'
     }
   }).filter(d=>d.komoditas);
@@ -106,15 +103,14 @@ async function loadData(){
 }
 
 function init(){
-  const cs=commoditySelect, ms=monthSelect;
   const kom=[...new Set(allData.map(d=>d.komoditas))];
   const bln=[...new Set(allData.map(d=>d.bulan))];
 
-  kom.forEach(x=>cs.add(new Option(x,x)));
-  bln.forEach(x=>ms.add(new Option(x,x)));
+  kom.forEach(x=>commoditySelect.add(new Option(x,x)));
+  bln.forEach(x=>monthSelect.add(new Option(x,x)));
 
-  cs.onchange=render;
-  ms.onchange=render;
+  commoditySelect.onchange=render;
+  monthSelect.onchange=render;
   render();
 }
 
@@ -138,8 +134,7 @@ function render(){
   let narasi=[];
 
   Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([key,val])=>{
-    const [komoditas,kegiatan]=key.split('|');
-    const rows=d.filter(x=>x.komoditas===komoditas&&x.kegiatan===kegiatan);
+    const rows=d.filter(x=>x.komoditas+'|'+x.kegiatan===key);
 
     const ac={};
     rows.forEach(r=>ac[r.alasan]=(ac[r.alasan]||0)+1);
@@ -150,25 +145,38 @@ function render(){
 
     const li=document.createElement('li');
     li.innerHTML=`
-      <b>${komoditas}</b> (${kegiatan})<br>
+      <b>${key.split('|')[0]}</b><br>
       Fenomena: <b>${alasan}</b><br>
       Total perubahan: <b>${val.toLocaleString('id-ID')}</b>
       ${isEkstrem?'<div class="extreme">Fenomena Ekstrem</div>':''}
     `;
     fenomenaList.appendChild(li);
 
-    narasi.push(`Komoditas ${komoditas} pada kegiatan ${kegiatan} mengalami perubahan harga yang dipengaruhi oleh ${alasan.toLowerCase()} dengan total perubahan sebesar ${val.toLocaleString('id-ID')}.`);
+    narasi.push(`Komoditas ${key.split('|')[0]} mengalami perubahan harga yang dipengaruhi oleh ${alasan.toLowerCase()} dengan total perubahan sebesar ${val.toLocaleString('id-ID')}.`);
   });
 
   if(modePimpinan){
     kpiKomoditas.innerText=new Set(allData.map(x=>x.komoditas)).size;
     kpiEntri.innerText=p.length;
-    kpiPetugas.innerText=new Set(p.map(x=>x.petugas)).size;
     kpiEkstrem.innerText=ekstrem;
-
-    narasiEl=document.getElementById('narasi');
-    narasiEl.innerHTML='<b>Ringkasan Analisis:</b><br>'+narasi.join(' ');
+    narasi.innerHTML='<b>Ringkasan Analisis:</b><br>'+narasi.join(' ');
   }
+
+  drawCharts(d);
+}
+
+function drawCharts(d){
+  if(priceChart)priceChart.destroy();
+  priceChart=new Chart(priceChartEl,{
+    type:'bar',
+    data:{labels:d.map(x=>x.bulan),datasets:[{data:d.map(x=>x.selisih)}]}
+  });
+
+  if(yearChart)yearChart.destroy();
+  yearChart=new Chart(yearChartEl,{
+    type:'line',
+    data:{labels:d.map(x=>x.bulan),datasets:[{data:d.map(x=>x.hargaBaru)}]}
+  });
 }
 
 modeBtn.onclick=()=>{
@@ -179,6 +187,9 @@ modeBtn.onclick=()=>{
   document.querySelectorAll('.mode-teknis').forEach(e=>e.classList.toggle('hide'));
   modeBtn.innerText=modePimpinan?'Matikan Mode Pimpinan':'Aktifkan Mode Pimpinan';
 };
+
+const priceChartEl=document.getElementById('priceChart');
+const yearChartEl=document.getElementById('yearChart');
 
 loadData();
 </script>
