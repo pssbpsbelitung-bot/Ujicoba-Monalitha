@@ -1,52 +1,39 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dashboard Monitoring Harga (Perbandingan Bulanan)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Monitoring Harga</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body{font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;margin:0;padding:24px}
-h1{margin-bottom:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-bottom:24px}
-.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
-select{padding:8px;border-radius:8px;border:1px solid #ccc;width:100%}
-canvas{width:100%!important;height:300px!important}
-small{color:#6b7280}
+body{font-family:Arial,sans-serif;background:#f3f4f6;padding:24px}
+.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:20px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+select{padding:8px;width:100%;border-radius:8px}
+canvas{height:320px!important}
 </style>
 </head>
 
 <body>
 
-<h1>📊 Dashboard Monitoring & Evaluasi Harga</h1>
-
-<div class="grid">
-  <div class="card">
-    <h3>Pilih Bulan</h3>
-    <select id="monthSelect"></select>
-  </div>
+<div class="card">
+  <h3>Pilih Bulan</h3>
+  <select id="monthSelect"></select>
 </div>
 
-<div class="grid">
-  <div class="card">
-    <h3>5 Fenomena Perubahan Harga Tertinggi</h3>
-    <ul id="fenomenaList"></ul>
-  </div>
+<div class="card">
+  <h3>5 Fenomena Perubahan Harga Tertinggi</h3>
+  <ul id="fenomenaList"></ul>
 </div>
 
-<div class="grid">
-  <div class="card">
-    <h3>Pilih Komoditas (Grafik)</h3>
-    <select id="commoditySelect"></select>
-  </div>
+<div class="card">
+  <h3>Pilih Komoditas (Grafik)</h3>
+  <select id="commoditySelect"></select>
 </div>
 
-<div class="grid">
-  <div class="card">
-    <h3>Pergerakan Harga Komoditas (Bulan-1 vs Bulan Pilihan)</h3>
-    <canvas id="priceChart"></canvas>
-  </div>
+<div class="card">
+  <h3>Pergerakan Harga Komoditas (Bulan-1 vs Bulan Pilihan)</h3>
+  <canvas id="priceChart"></canvas>
 </div>
 
 <script>
@@ -54,26 +41,23 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
-let allData=[],fenomenaBulanan=[],chart;
+let data=[],chart,months=[];
 
-function parseCSV(text){
-  const rows=[],cur=[]; let v='',q=false;
-  for(const c of text){
-    if(c === '"') q=!q;
-    else if(c===','&&!q){cur.push(v);v='';}
-    else if(c==='\n'&&!q){cur.push(v);rows.push(cur.splice(0));v='';}
-    else v+=c;
+function parseCSV(t){
+  const r=[],c=[];let v='',q=false;
+  for(const x of t){
+    if(x=='"')q=!q;
+    else if(x==','&&!q){c.push(v);v='';}
+    else if(x=='\n'&&!q){c.push(v);r.push(c.splice(0));v='';}
+    else v+=x;
   }
-  cur.push(v); rows.push(cur);
-  return rows;
+  c.push(v);r.push(c);
+  return r;
 }
 
-async function load(){
-  const r=await fetch(CSV_URL);
-  const t=await r.text();
+fetch(CSV_URL).then(r=>r.text()).then(t=>{
   const rows=parseCSV(t).slice(1);
-
-  allData=rows.map(c=>({
+  data=rows.map(c=>({
     bulan:c[2],
     kegiatan:c[1],
     komoditas:c[5],
@@ -81,89 +65,71 @@ async function load(){
     alasan:c[9]||'-'
   })).filter(d=>d.bulan&&d.komoditas);
 
+  months=[...new Set(data.map(d=>d.bulan))].sort();
   init();
-}
+});
 
 function init(){
-  const monthSelect=document.getElementById('monthSelect');
-  const months=[...new Set(allData.map(d=>d.bulan))];
-
-  months.forEach(m=>monthSelect.add(new Option(m,m)));
-  monthSelect.onchange=onMonthChange;
-
+  const ms=document.getElementById('monthSelect');
+  months.forEach(m=>ms.add(new Option(m,m)));
+  ms.onchange=onMonthChange;
   onMonthChange();
 }
 
 function onMonthChange(){
-  const month=document.getElementById('monthSelect').value;
-  const dataMonth=allData.filter(d=>d.bulan===month);
+  const bulan=document.getElementById('monthSelect').value;
+  const bulanData=data.filter(d=>d.bulan===bulan);
 
-  // === FENOMENA BULANAN (FREEZE) ===
+  // === FENOMENA (TIDAK TERPENGARUH KOMODITAS) ===
   const map={};
-  dataMonth.forEach(d=>{
+  bulanData.forEach(d=>{
     const k=d.komoditas+'|'+d.kegiatan;
     map[k]=(map[k]||0)+Math.abs(d.selisih);
   });
 
-  fenomenaBulanan=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  renderFenomena(dataMonth);
+  const top=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const ul=document.getElementById('fenomenaList');
+  ul.innerHTML='';
+  top.forEach(([k,v])=>{
+    const [kom,keg]=k.split('|');
+    ul.innerHTML+=`<li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
+  });
 
-  // === KOMODITAS UNTUK GRAFIK ===
+  // === KOMODITAS DROPDOWN ===
   const cs=document.getElementById('commoditySelect');
   cs.innerHTML='';
-  [...new Set(dataMonth.map(d=>d.komoditas))]
+  [...new Set(bulanData.map(d=>d.komoditas))]
     .forEach(k=>cs.add(new Option(k,k)));
   cs.onchange=drawChart;
 
   drawChart();
 }
 
-function renderFenomena(data){
-  const ul=document.getElementById('fenomenaList');
-  ul.innerHTML='';
-  fenomenaBulanan.forEach(([key,val])=>{
-    const [kom,keg]=key.split('|');
-    const rows=data.filter(d=>d.komoditas===kom&&d.kegiatan===keg);
-    const alasan=rows.reduce((a,b)=>{a[b.alasan]=(a[b.alasan]||0)+1;return a;},{});
-    const top=Object.entries(alasan).sort((a,b)=>b[1]-a[1])[0][0];
-
-    ul.innerHTML+=`
-      <li>
-        <b>${kom}</b><br>
-        <small>Jenis Kegiatan: <b>${keg}</b></small><br>
-        Fenomena: <b>${top}</b><br>
-        Total Perubahan: <b>${val.toLocaleString('id-ID')}</b>
-      </li>`;
-  });
-}
-
 function drawChart(){
-  const month=document.getElementById('monthSelect').value;
-  const idx=[...new Set(allData.map(d=>d.bulan))].indexOf(month);
+  const bulan=document.getElementById('monthSelect').value;
+  const idx=months.indexOf(bulan);
   if(idx<=0) return;
 
-  const prev=[...new Set(allData.map(d=>d.bulan))][idx-1];
+  const prev=months[idx-1];
   const kom=document.getElementById('commoditySelect').value;
 
-  const d1=allData.filter(d=>d.bulan===prev&&d.komoditas===kom);
-  const d2=allData.filter(d=>d.bulan===month&&d.komoditas===kom);
+  const dPrev=data.filter(d=>d.bulan===prev&&d.komoditas===kom);
+  const dNow=data.filter(d=>d.bulan===bulan&&d.komoditas===kom);
 
-  const labels=[...new Set([...d1,...d2].map(d=>d.kegiatan))];
+  const labels=[...new Set([...dPrev,...dNow].map(d=>d.kegiatan))];
 
-  if(chart) chart.destroy();
+  if(chart)chart.destroy();
   chart=new Chart(document.getElementById('priceChart'),{
     type:'bar',
     data:{
       labels,
       datasets:[
-        {label:prev,data:labels.map(l=>(d1.find(x=>x.kegiatan===l)||{}).selisih||0)},
-        {label:month,data:labels.map(l=>(d2.find(x=>x.kegiatan===l)||{}).selisih||0)}
+        {label:prev,data:labels.map(l=>(dPrev.find(x=>x.kegiatan===l)||{}).selisih||0)},
+        {label:bulan,data:labels.map(l=>(dNow.find(x=>x.kegiatan===l)||{}).selisih||0)}
       ]
     }
   });
 }
-
-load();
 });
 </script>
 
