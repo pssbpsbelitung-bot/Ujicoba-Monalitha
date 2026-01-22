@@ -7,10 +7,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body{font-family:Arial,sans-serif;background:#f3f4f6;padding:24px}
+body{font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;padding:24px}
 .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:20px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
 select{padding:8px;width:100%;border-radius:8px}
-canvas{height:320px!important}
+canvas{height:340px!important}
+h3{margin-top:0}
 </style>
 </head>
 
@@ -32,7 +33,9 @@ canvas{height:320px!important}
 </div>
 
 <div class="card">
-  <h3>Pergerakan Harga Komoditas (Bulan-1 vs Bulan Pilihan)</h3>
+  <h3>Pergerakan Harga Komoditas<br>
+    <small style="color:#6b7280">Perbandingan Bulan-1 vs Bulan Terpilih</small>
+  </h3>
   <canvas id="priceChart"></canvas>
 </div>
 
@@ -80,7 +83,7 @@ function onMonthChange(){
   const bulan=document.getElementById('monthSelect').value;
   const bulanData=data.filter(d=>d.bulan===bulan);
 
-  // === FENOMENA (TIDAK TERPENGARUH KOMODITAS) ===
+  // === FENOMENA (FREEZE) ===
   const map={};
   bulanData.forEach(d=>{
     const k=d.komoditas+'|'+d.kegiatan;
@@ -95,7 +98,7 @@ function onMonthChange(){
     ul.innerHTML+=`<li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
   });
 
-  // === KOMODITAS DROPDOWN ===
+  // === KOMODITAS ===
   const cs=document.getElementById('commoditySelect');
   cs.innerHTML='';
   [...new Set(bulanData.map(d=>d.komoditas))]
@@ -120,13 +123,45 @@ function drawChart(){
 
   if(chart)chart.destroy();
   chart=new Chart(document.getElementById('priceChart'),{
-    type:'bar',
+    type:'line',
     data:{
       labels,
       datasets:[
-        {label:prev,data:labels.map(l=>(dPrev.find(x=>x.kegiatan===l)||{}).selisih||0)},
-        {label:bulan,data:labels.map(l=>(dNow.find(x=>x.kegiatan===l)||{}).selisih||0)}
+        {
+          label:`${prev}`,
+          data:labels.map(l=>(dPrev.find(x=>x.kegiatan===l)||{}).selisih||0),
+          borderColor:'#9ca3af',
+          backgroundColor:'rgba(156,163,175,0.15)',
+          tension:0.35,
+          pointRadius:4
+        },
+        {
+          label:`${bulan}`,
+          data:labels.map(l=>(dNow.find(x=>x.kegiatan===l)||{}).selisih||0),
+          borderColor:'#2563eb',
+          backgroundColor:'rgba(37,99,235,0.2)',
+          tension:0.35,
+          pointRadius:5
+        }
       ]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'bottom'},
+        tooltip:{
+          callbacks:{
+            label:c=>`${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}`
+          }
+        }
+      },
+      scales:{
+        x:{grid:{display:false}},
+        y:{
+          grid:{color:'#e5e7eb'},
+          ticks:{callback:v=>v.toLocaleString('id-ID')}
+        }
+      }
     }
   });
 }
