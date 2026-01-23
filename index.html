@@ -24,10 +24,7 @@ body{
   background:var(--bg);
   color:var(--text);
 }
-h1{
-  color:var(--bps-blue);
-  margin-bottom:20px;
-}
+h1{color:var(--bps-blue);margin-bottom:20px}
 .dashboard{
   display:grid;
   grid-template-columns:320px 1fr;
@@ -66,20 +63,10 @@ select{
   font-size:12px;
   color:var(--muted);
 }
-.full{
-  grid-column:1/-1;
-}
-ul{
-  margin:0;
-  padding-left:18px;
-}
-li{
-  font-size:14px;
-  margin-bottom:6px;
-}
-canvas{
-  height:320px!important;
-}
+.full{grid-column:1/-1}
+ul{margin:0;padding-left:18px}
+li{font-size:14px;margin-bottom:6px}
+canvas{height:320px!important}
 </style>
 </head>
 
@@ -162,7 +149,7 @@ let chart = null;
 function parseCSV(text){
   return text.split(/\r?\n/).map(row =>
     row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-       .map(v => v.replace(/^"|"$/g,''))
+       .map(v => v.replace(/^"|"$/g,'').trim())
   );
 }
 
@@ -175,12 +162,18 @@ fetch(CSV_URL)
   const rows = parseCSV(text);
 
   data = rows.slice(1).map(r => ({
-    bulan      : r[2],
-    kegiatan   : r[1],
-    komoditas  : r[7],   // ✅ INDEX 7
-    hargaLalu  : +r[8],  // ✅ INDEX 8
-    hargaNow   : +r[9]   // ✅ INDEX 9
-  })).filter(d => d.bulan && d.komoditas);
+    bulan     : r[2],
+    kegiatan  : r[1],
+
+    // 🔒 KOMODITAS DIKUNCI
+    // Kolom G
+    // Judul: "Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)"
+    komoditas : r[7] ? r[7].trim() : '',
+
+    hargaLalu : Number(r[8]),
+    hargaNow  : Number(r[9])
+  }))
+  .filter(d => d.bulan && d.komoditas);
 
   init();
 });
