@@ -9,60 +9,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-:root{
-  --bps-blue:#0057a8;
-  --bps-gray:#f4f6f8;
-  --text-dark:#1f2937;
-  --text-muted:#6b7280;
-}
-*{box-sizing:border-box}
 body{
+  font-family:Inter,system-ui,sans-serif;
+  background:#f3f4f6;
   margin:0;
   padding:24px;
-  font-family:'Inter',system-ui,sans-serif;
-  background:var(--bps-gray);
-  color:var(--text-dark);
 }
-h1{color:var(--bps-blue);margin-bottom:20px}
+h1{color:#0057a8}
 .dashboard{display:grid;grid-template-columns:320px 1fr;gap:24px}
-.sidebar{display:flex;flex-direction:column;gap:16px}
 .card{
   background:#fff;
+  padding:16px;
   border-radius:14px;
-  padding:16px 18px;
   box-shadow:0 6px 18px rgba(0,0,0,.06);
-}
-.card h3{
-  font-size:14px;
-  font-weight:600;
-  color:var(--bps-blue);
-  margin-bottom:10px;
 }
 select{
   width:100%;
   padding:10px;
   border-radius:8px;
   border:1px solid #d1d5db;
-  font-size:14px;
 }
-.main{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:16px;
-}
-.kpi .value{
-  font-size:24px;
-  font-weight:700;
-  color:var(--bps-blue);
-}
-.kpi .label{
-  font-size:12px;
-  color:var(--text-muted);
-}
+.main{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.kpi .value{font-size:24px;font-weight:700;color:#0057a8}
 .full{grid-column:1/-1}
-ul{padding-left:18px;margin:0}
-li{margin-bottom:8px;font-size:14px}
-canvas{height:320px!important}
 </style>
 </head>
 
@@ -72,184 +41,106 @@ canvas{height:320px!important}
 
 <div class="dashboard">
 
-  <!-- FILTER -->
-  <div class="sidebar">
+  <div>
     <div class="card">
       <h3>Pilih Bulan</h3>
       <select id="monthSelect"></select>
     </div>
-
+    <br>
     <div class="card">
       <h3>Pilih Komoditas</h3>
       <select id="commoditySelect"></select>
     </div>
-
-    <div class="card">
-      <h3>Pilih Jenis Kegiatan</h3>
-      <select id="activitySelect"></select>
-    </div>
   </div>
 
-  <!-- MAIN -->
   <div class="main">
-
     <div class="card kpi">
       <div class="value" id="kpiKomoditas">0</div>
-      <div class="label">Jumlah Komoditas</div>
+      <div>Jumlah Komoditas</div>
     </div>
-
-    <div class="card kpi">
-      <div class="value" id="kpiFenomena">0</div>
-      <div class="label">Fenomena Harga</div>
-    </div>
-
-    <div class="card kpi">
-      <div class="value" id="kpiRata">0</div>
-      <div class="label">Rata-rata Perubahan</div>
-    </div>
-
     <div class="card kpi">
       <div class="value" id="kpiPerubahan">0%</div>
-      <div class="label">Perubahan Harga Terpilih</div>
+      <div>Perubahan Harga</div>
     </div>
 
     <div class="card full">
-      <h3>10 Fenomena Perubahan Harga Tertinggi</h3>
-      <ul id="fenomenaList"></ul>
-    </div>
-
-    <div class="card full">
-      <h3>Pergerakan Harga (Bulan-1 vs Bulan Terpilih)</h3>
       <canvas id="priceChart"></canvas>
     </div>
-
   </div>
+
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded',()=>{
-
 const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
-let data=[],months=[],chart;
+let rows=[],data=[],chart,headers={};
 
-function parseCSV(t){
-  const r=[],c=[];let v='',q=false;
-  for(const x of t){
-    if(x=='"')q=!q;
-    else if(x==','&&!q){c.push(v);v='';}
-    else if(x=='\n'&&!q){c.push(v);r.push(c.splice(0));v='';}
-    else v+=x;
-  }
-  c.push(v);r.push(c);return r;
+function parseCSV(text){
+  const lines=text.split(/\r?\n/);
+  return lines.map(l=>l.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+    .map(v=>v.replace(/^"|"$/g,'')));
 }
 
-fetch(CSV_URL).then(r=>r.text()).then(t=>{
-  const rows=parseCSV(t).slice(1);
-  data=rows.map(c=>({
-    bulan:c[2],
-    kegiatan:c[1],
-    komoditas:c[6], // ✅ Kolom G: Nama Komoditas (lengkap + kualitas)
-    harga_lalu:+c[7],
-    harga_sekarang:+c[8]
-  })).filter(d=>d.bulan&&d.komoditas);
+fetch(CSV_URL)
+.then(r=>r.text())
+.then(t=>{
+  rows=parseCSV(t);
+  rows[0].forEach((h,i)=>headers[h.trim()]=i);
 
-  months=[...new Set(data.map(d=>d.bulan))].sort();
+  data=rows.slice(1).map(r=>({
+    bulan:r[headers["Bulan"]],
+    komoditas:r[headers["Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)"]],
+    harga_lalu:+r[headers["Harga Bulan Lalu"]],
+    harga_sekarang:+r[headers["Harga Bulan Ini"]]
+  })).filter(d=>d.komoditas);
+
   init();
 });
 
 function init(){
-  months.forEach(m=>monthSelect.add(new Option(m,m)));
-  monthSelect.onchange=onMonthChange;
-  onMonthChange();
+  const bulan=[...new Set(data.map(d=>d.bulan))];
+  bulan.forEach(b=>monthSelect.add(new Option(b,b)));
+  monthSelect.onchange=update;
+  update();
 }
 
-function onMonthChange(){
+function update(){
   const bulan=monthSelect.value;
-  const bulanData=data.filter(d=>d.bulan===bulan);
+  const list=data.filter(d=>d.bulan===bulan);
 
-  const komoditas=[...new Set(bulanData.map(d=>d.komoditas))];
+  const kom=[...new Set(list.map(d=>d.komoditas))];
   commoditySelect.innerHTML='';
-  komoditas.forEach(k=>commoditySelect.add(new Option(k,k)));
-  commoditySelect.onchange=onCommodityChange;
+  kom.forEach(k=>commoditySelect.add(new Option(k,k)));
 
-  kpiKomoditas.innerText=komoditas.length;
-  onCommodityChange();
+  kpiKomoditas.innerText=kom.length;
+  commoditySelect.onchange=draw;
+  draw();
 }
 
-function onCommodityChange(){
-  const bulan=monthSelect.value;
-  const kom=commoditySelect.value;
+function draw(){
+  const d=data.find(x=>x.bulan===monthSelect.value &&
+                       x.komoditas===commoditySelect.value);
+  if(!d)return;
 
-  const kegiatan=[...new Set(
-    data.filter(d=>d.bulan===bulan&&d.komoditas===kom)
-        .map(d=>d.kegiatan)
-  )];
+  const persen=d.harga_lalu
+    ?((d.harga_sekarang-d.harga_lalu)/d.harga_lalu*100):0;
 
-  activitySelect.innerHTML='';
-  kegiatan.forEach(k=>activitySelect.add(new Option(k,k)));
-  activitySelect.onchange=drawChart;
-
-  updateFenomena();
-  drawChart();
-}
-
-function updateFenomena(){
-  const bulan=monthSelect.value;
-  const map={};
-
-  data.filter(d=>d.bulan===bulan).forEach(d=>{
-    const k=d.komoditas+'|'+d.kegiatan;
-    map[k]=(map[k]||0)+Math.abs(d.harga_sekarang-d.harga_lalu);
-  });
-
-  const top=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  fenomenaList.innerHTML='';
-  top.forEach(([k,v])=>{
-    const [kom,keg]=k.split('|');
-    fenomenaList.innerHTML+=
-      `<li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
-  });
-
-  kpiFenomena.innerText=Object.keys(map).length;
-}
-
-function drawChart(){
-  const kom=commoditySelect.value;
-  const keg=activitySelect.value;
-  const bulan=monthSelect.value;
-
-  const row=data.find(d=>
-    d.bulan===bulan&&d.komoditas===kom&&d.kegiatan===keg
-  );
-  if(!row)return;
-
-  const lalu=row.harga_lalu||0;
-  const sekarang=row.harga_sekarang||0;
-  const persen=lalu?((sekarang-lalu)/lalu*100):0;
-
-  kpiPerubahan.innerText=
-    (persen>=0?'+':'')+persen.toFixed(2)+'%';
-  kpiRata.innerText=Math.abs(persen).toFixed(0);
+  kpiPerubahan.innerText=persen.toFixed(2)+'%';
 
   if(chart)chart.destroy();
   chart=new Chart(priceChart,{
     type:'bar',
     data:{
-      labels:['Harga Bulan Lalu','Harga Bulan Sekarang'],
+      labels:['Harga Bulan Lalu','Harga Bulan Ini'],
       datasets:[{
-        data:[lalu,sekarang],
+        data:[d.harga_lalu,d.harga_sekarang],
         backgroundColor:['#9ca3af','#0057a8'],
         borderRadius:8
       }]
     },
-    options:{
-      plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true}}
-    }
+    options:{plugins:{legend:{display:false}}}
   });
 }
-});
 </script>
 
 </body>
