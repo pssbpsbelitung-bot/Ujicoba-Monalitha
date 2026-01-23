@@ -21,6 +21,7 @@ body{
   padding:24px;
   font-family:'Inter',system-ui,sans-serif;
   background:var(--bps-gray);
+  color:var(--text-dark);
 }
 h1{color:var(--bps-blue);margin-bottom:20px}
 .dashboard{display:grid;grid-template-columns:320px 1fr;gap:24px}
@@ -31,16 +32,33 @@ h1{color:var(--bps-blue);margin-bottom:20px}
   padding:16px 18px;
   box-shadow:0 6px 18px rgba(0,0,0,.06);
 }
-.card h3{font-size:14px;color:var(--bps-blue);margin-bottom:10px}
+.card h3{
+  font-size:14px;
+  font-weight:600;
+  color:var(--bps-blue);
+  margin-bottom:10px;
+}
 select{
   width:100%;
   padding:10px;
   border-radius:8px;
   border:1px solid #d1d5db;
+  font-size:14px;
 }
-.main{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.kpi .value{font-size:26px;font-weight:700;color:var(--bps-blue)}
-.kpi .label{font-size:12px;color:var(--text-muted)}
+.main{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+}
+.kpi .value{
+  font-size:24px;
+  font-weight:700;
+  color:var(--bps-blue);
+}
+.kpi .label{
+  font-size:12px;
+  color:var(--text-muted);
+}
 .full{grid-column:1/-1}
 ul{padding-left:18px;margin:0}
 li{margin-bottom:8px;font-size:14px}
@@ -90,6 +108,11 @@ canvas{height:320px!important}
       <div class="label">Rata-rata Perubahan</div>
     </div>
 
+    <div class="card kpi">
+      <div class="value" id="kpiPerubahan">0%</div>
+      <div class="label">Perubahan Harga Terpilih</div>
+    </div>
+
     <div class="card full">
       <h3>10 Fenomena Perubahan Harga Tertinggi</h3>
       <ul id="fenomenaList"></ul>
@@ -126,8 +149,9 @@ fetch(CSV_URL).then(r=>r.text()).then(t=>{
   data=rows.map(c=>({
     bulan:c[2],
     kegiatan:c[1],
-    komoditas:c[5],
-    selisih:+c[8]
+    komoditas:c[6], // ✅ Kolom G: Nama Komoditas (lengkap + kualitas)
+    harga_lalu:+c[7],
+    harga_sekarang:+c[8]
   })).filter(d=>d.bulan&&d.komoditas);
 
   months=[...new Set(data.map(d=>d.bulan))].sort();
@@ -147,8 +171,9 @@ function onMonthChange(){
   const komoditas=[...new Set(bulanData.map(d=>d.komoditas))];
   commoditySelect.innerHTML='';
   komoditas.forEach(k=>commoditySelect.add(new Option(k,k)));
-
   commoditySelect.onchange=onCommodityChange;
+
+  kpiKomoditas.innerText=komoditas.length;
   onCommodityChange();
 }
 
@@ -175,13 +200,10 @@ function updateFenomena(){
 
   data.filter(d=>d.bulan===bulan).forEach(d=>{
     const k=d.komoditas+'|'+d.kegiatan;
-    map[k]=(map[k]||0)+Math.abs(d.selisih);
+    map[k]=(map[k]||0)+Math.abs(d.harga_sekarang-d.harga_lalu);
   });
 
-  const top=Object.entries(map)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,10);
-
+  const top=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
   fenomenaList.innerHTML='';
   top.forEach(([k,v])=>{
     const [kom,keg]=k.split('|');
@@ -193,28 +215,38 @@ function updateFenomena(){
 }
 
 function drawChart(){
-  const bulan=monthSelect.value;
-  const idx=months.indexOf(bulan);
-  if(idx<=0)return;
-
-  const prev=months[idx-1];
   const kom=commoditySelect.value;
   const keg=activitySelect.value;
+  const bulan=monthSelect.value;
 
-  const p=data.filter(d=>d.bulan===prev&&d.komoditas===kom&&d.kegiatan===keg);
-  const n=data.filter(d=>d.bulan===bulan&&d.komoditas===kom&&d.kegiatan===keg);
+  const row=data.find(d=>
+    d.bulan===bulan&&d.komoditas===kom&&d.kegiatan===keg
+  );
+  if(!row)return;
+
+  const lalu=row.harga_lalu||0;
+  const sekarang=row.harga_sekarang||0;
+  const persen=lalu?((sekarang-lalu)/lalu*100):0;
+
+  kpiPerubahan.innerText=
+    (persen>=0?'+':'')+persen.toFixed(2)+'%';
+  kpiRata.innerText=Math.abs(persen).toFixed(0);
 
   if(chart)chart.destroy();
   chart=new Chart(priceChart,{
     type:'bar',
     data:{
-      labels:[keg],
-      datasets:[
-        {label:prev,data:[p[0]?.selisih||0],backgroundColor:'#9ca3af'},
-        {label:bulan,data:[n[0]?.selisih||0],backgroundColor:'#0057a8'}
-      ]
+      labels:['Harga Bulan Lalu','Harga Bulan Sekarang'],
+      datasets:[{
+        data:[lalu,sekarang],
+        backgroundColor:['#9ca3af','#0057a8'],
+        borderRadius:8
+      }]
     },
-    options:{plugins:{legend:{position:'bottom'}}}
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true}}
+    }
   });
 }
 });
