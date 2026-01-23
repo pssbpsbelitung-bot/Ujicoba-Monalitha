@@ -24,7 +24,10 @@ body{
   background:var(--bg);
   color:var(--text);
 }
-h1{color:var(--bps-blue);margin-bottom:20px}
+h1{
+  color:var(--bps-blue);
+  margin-bottom:20px;
+}
 .dashboard{
   display:grid;
   grid-template-columns:320px 1fr;
@@ -63,10 +66,20 @@ select{
   font-size:12px;
   color:var(--muted);
 }
-.full{grid-column:1/-1}
-ul{margin:0;padding-left:18px}
-li{font-size:14px;margin-bottom:6px}
-canvas{height:320px!important}
+.full{
+  grid-column:1/-1;
+}
+ul{
+  margin:0;
+  padding-left:18px;
+}
+li{
+  font-size:14px;
+  margin-bottom:6px;
+}
+canvas{
+  height:320px!important;
+}
 </style>
 </head>
 
@@ -76,31 +89,25 @@ canvas{height:320px!important}
 
 <div class="dashboard">
 
-  <!-- FILTER PANEL -->
+  <!-- FILTER -->
   <div>
-
     <div class="card">
       <h3>Pilih Bulan</h3>
       <select id="monthSelect"></select>
     </div>
-
     <br>
-
     <div class="card">
       <h3>Pilih Komoditas</h3>
       <select id="commoditySelect"></select>
     </div>
-
     <br>
-
     <div class="card">
       <h3>Pilih Jenis Kegiatan</h3>
       <select id="activitySelect"></select>
     </div>
-
   </div>
 
-  <!-- MAIN DASHBOARD -->
+  <!-- MAIN -->
   <div class="main">
 
     <div class="card kpi">
@@ -154,25 +161,29 @@ function parseCSV(text){
 }
 
 /* ======================
-   LOAD DATA
+   LOAD DATA (HEADER BASED)
 ====================== */
 fetch(CSV_URL)
 .then(res => res.text())
 .then(text => {
   const rows = parseCSV(text);
+  const header = rows[0];
+
+  const idx = {
+    bulan     : header.indexOf('Bulan'),
+    kegiatan  : header.indexOf('Jenis Kegiatan'),
+    komoditas : header.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
+    hargaLalu : header.indexOf('Harga Sebelumnya'),
+    hargaNow  : header.indexOf('Harga Sekarang')
+  };
 
   data = rows.slice(1).map(r => ({
-    bulan      : r[2],
-    kegiatan   : r[1],
-
-    // 🔒 KOMODITAS FINAL
-    // Kolom G → CSV index 6
-    komoditas  : r[6],
-
-    hargaLalu  : Number(r[8]),
-    hargaNow   : Number(r[9])
-  }))
-  .filter(d => d.bulan && d.komoditas);
+    bulan     : r[idx.bulan],
+    kegiatan  : r[idx.kegiatan],
+    komoditas : r[idx.komoditas],
+    hargaLalu : Number(r[idx.hargaLalu]) || 0,
+    hargaNow  : Number(r[idx.hargaNow]) || 0
+  })).filter(d => d.bulan && d.komoditas);
 
   init();
 });
@@ -183,7 +194,6 @@ fetch(CSV_URL)
 function init(){
   const bulanList = [...new Set(data.map(d => d.bulan))];
   bulanList.forEach(b => monthSelect.add(new Option(b,b)));
-
   monthSelect.onchange = updateKomoditas;
   updateKomoditas();
 }
