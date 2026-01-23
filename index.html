@@ -9,29 +9,77 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
+:root{
+  --bps-blue:#0057a8;
+  --bg:#f3f4f6;
+  --card:#ffffff;
+  --text:#1f2937;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box}
 body{
-  font-family:Inter,system-ui,sans-serif;
-  background:#f3f4f6;
   margin:0;
   padding:24px;
+  font-family:Inter,system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
 }
-h1{color:#0057a8}
-.dashboard{display:grid;grid-template-columns:320px 1fr;gap:24px}
+h1{
+  color:var(--bps-blue);
+  margin-bottom:20px;
+}
+.dashboard{
+  display:grid;
+  grid-template-columns:320px 1fr;
+  gap:24px;
+}
 .card{
-  background:#fff;
-  padding:16px;
+  background:var(--card);
+  padding:16px 18px;
   border-radius:14px;
   box-shadow:0 6px 18px rgba(0,0,0,.06);
+}
+.card h3{
+  margin:0 0 10px;
+  font-size:14px;
+  font-weight:600;
+  color:var(--bps-blue);
 }
 select{
   width:100%;
   padding:10px;
   border-radius:8px;
   border:1px solid #d1d5db;
+  font-size:14px;
 }
-.main{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.kpi .value{font-size:24px;font-weight:700;color:#0057a8}
-.full{grid-column:1/-1}
+.main{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+}
+.kpi .value{
+  font-size:26px;
+  font-weight:700;
+  color:var(--bps-blue);
+}
+.kpi .label{
+  font-size:12px;
+  color:var(--muted);
+}
+.full{
+  grid-column:1/-1;
+}
+ul{
+  margin:0;
+  padding-left:18px;
+}
+li{
+  font-size:14px;
+  margin-bottom:6px;
+}
+canvas{
+  height:320px!important;
+}
 </style>
 </head>
 
@@ -41,104 +89,221 @@ select{
 
 <div class="dashboard">
 
+  <!-- FILTER PANEL -->
   <div>
+
     <div class="card">
       <h3>Pilih Bulan</h3>
       <select id="monthSelect"></select>
     </div>
+
     <br>
+
     <div class="card">
       <h3>Pilih Komoditas</h3>
       <select id="commoditySelect"></select>
     </div>
+
+    <br>
+
+    <div class="card">
+      <h3>Pilih Jenis Kegiatan</h3>
+      <select id="activitySelect"></select>
+    </div>
+
   </div>
 
+  <!-- MAIN DASHBOARD -->
   <div class="main">
+
     <div class="card kpi">
       <div class="value" id="kpiKomoditas">0</div>
-      <div>Jumlah Komoditas</div>
+      <div class="label">Jumlah Komoditas</div>
     </div>
+
+    <div class="card kpi">
+      <div class="value" id="kpiFenomena">0</div>
+      <div class="label">Jumlah Fenomena</div>
+    </div>
+
+    <div class="card kpi">
+      <div class="value" id="kpiRata">0</div>
+      <div class="label">Rata-rata Perubahan (%)</div>
+    </div>
+
     <div class="card kpi">
       <div class="value" id="kpiPerubahan">0%</div>
-      <div>Perubahan Harga</div>
+      <div class="label">Perubahan Terpilih</div>
     </div>
 
     <div class="card full">
+      <h3>10 Fenomena Perubahan Harga Tertinggi</h3>
+      <ul id="fenomenaList"></ul>
+    </div>
+
+    <div class="card full">
+      <h3>Perbandingan Harga</h3>
       <canvas id="priceChart"></canvas>
     </div>
-  </div>
 
+  </div>
 </div>
 
 <script>
-const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
+const CSV_URL =
+"https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
-let rows=[],data=[],chart,headers={};
+let data = [];
+let chart = null;
 
+/* ======================
+   CSV PARSER
+====================== */
 function parseCSV(text){
-  const lines=text.split(/\r?\n/);
-  return lines.map(l=>l.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-    .map(v=>v.replace(/^"|"$/g,'')));
+  return text.split(/\r?\n/).map(row =>
+    row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+       .map(v => v.replace(/^"|"$/g,''))
+  );
 }
 
+/* ======================
+   LOAD DATA
+====================== */
 fetch(CSV_URL)
-.then(r=>r.text())
-.then(t=>{
-  rows=parseCSV(t);
-  rows[0].forEach((h,i)=>headers[h.trim()]=i);
+.then(res => res.text())
+.then(text => {
+  const rows = parseCSV(text);
 
-  data=rows.slice(1).map(r=>({
-    bulan:r[headers["Bulan"]],
-    komoditas:r[headers["Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)"]],
-    harga_lalu:+r[headers["Harga Bulan Lalu"]],
-    harga_sekarang:+r[headers["Harga Bulan Ini"]]
-  })).filter(d=>d.komoditas);
+  data = rows.slice(1).map(r => ({
+    bulan      : r[2],
+    kegiatan   : r[1],
+    komoditas  : r[7],   // ✅ INDEX 7
+    hargaLalu  : +r[8],  // ✅ INDEX 8
+    hargaNow   : +r[9]   // ✅ INDEX 9
+  })).filter(d => d.bulan && d.komoditas);
 
   init();
 });
 
+/* ======================
+   INIT
+====================== */
 function init(){
-  const bulan=[...new Set(data.map(d=>d.bulan))];
-  bulan.forEach(b=>monthSelect.add(new Option(b,b)));
-  monthSelect.onchange=update;
-  update();
+  const bulanList = [...new Set(data.map(d => d.bulan))];
+  bulanList.forEach(b => monthSelect.add(new Option(b,b)));
+
+  monthSelect.onchange = updateKomoditas;
+  updateKomoditas();
 }
 
-function update(){
-  const bulan=monthSelect.value;
-  const list=data.filter(d=>d.bulan===bulan);
+/* ======================
+   KOMODITAS
+====================== */
+function updateKomoditas(){
+  const bulan = monthSelect.value;
+  const list = data.filter(d => d.bulan === bulan);
 
-  const kom=[...new Set(list.map(d=>d.komoditas))];
-  commoditySelect.innerHTML='';
-  kom.forEach(k=>commoditySelect.add(new Option(k,k)));
+  const komoditas = [...new Set(list.map(d => d.komoditas))];
+  commoditySelect.innerHTML = '';
+  komoditas.forEach(k => commoditySelect.add(new Option(k,k)));
 
-  kpiKomoditas.innerText=kom.length;
-  commoditySelect.onchange=draw;
-  draw();
+  kpiKomoditas.innerText = komoditas.length;
+
+  commoditySelect.onchange = updateKegiatan;
+  updateKegiatan();
 }
 
-function draw(){
-  const d=data.find(x=>x.bulan===monthSelect.value &&
-                       x.komoditas===commoditySelect.value);
-  if(!d)return;
+/* ======================
+   KEGIATAN
+====================== */
+function updateKegiatan(){
+  const bulan = monthSelect.value;
+  const kom   = commoditySelect.value;
 
-  const persen=d.harga_lalu
-    ?((d.harga_sekarang-d.harga_lalu)/d.harga_lalu*100):0;
+  const kegiatan = [...new Set(
+    data.filter(d => d.bulan === bulan && d.komoditas === kom)
+        .map(d => d.kegiatan)
+  )];
 
-  kpiPerubahan.innerText=persen.toFixed(2)+'%';
+  activitySelect.innerHTML = '';
+  kegiatan.forEach(k => activitySelect.add(new Option(k,k)));
 
-  if(chart)chart.destroy();
-  chart=new Chart(priceChart,{
+  activitySelect.onchange = renderAll;
+  renderAll();
+}
+
+/* ======================
+   FENOMENA
+====================== */
+function updateFenomena(){
+  const bulan = monthSelect.value;
+  const map = {};
+
+  data.filter(d => d.bulan === bulan).forEach(d => {
+    const key = d.komoditas + '|' + d.kegiatan;
+    map[key] = (map[key] || 0) + Math.abs(d.hargaNow - d.hargaLalu);
+  });
+
+  const top10 = Object.entries(map)
+    .sort((a,b) => b[1] - a[1])
+    .slice(0,10);
+
+  fenomenaList.innerHTML = '';
+  top10.forEach(([k,v]) => {
+    const [kom,keg] = k.split('|');
+    fenomenaList.innerHTML +=
+      `<li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
+  });
+
+  kpiFenomena.innerText = Object.keys(map).length;
+}
+
+/* ======================
+   RENDER ALL
+====================== */
+function renderAll(){
+  updateFenomena();
+  drawChart();
+}
+
+/* ======================
+   CHART
+====================== */
+function drawChart(){
+  const bulan = monthSelect.value;
+  const kom   = commoditySelect.value;
+  const keg   = activitySelect.value;
+
+  const d = data.find(x =>
+    x.bulan === bulan &&
+    x.komoditas === kom &&
+    x.kegiatan === keg
+  );
+  if(!d) return;
+
+  const persen = d.hargaLalu
+    ? ((d.hargaNow - d.hargaLalu) / d.hargaLalu) * 100
+    : 0;
+
+  kpiPerubahan.innerText = persen.toFixed(2) + '%';
+  kpiRata.innerText = Math.abs(persen).toFixed(1);
+
+  if(chart) chart.destroy();
+
+  chart = new Chart(priceChart,{
     type:'bar',
     data:{
-      labels:['Harga Bulan Lalu','Harga Bulan Ini'],
+      labels:['Harga Sebelumnya','Harga Sekarang'],
       datasets:[{
-        data:[d.harga_lalu,d.harga_sekarang],
+        data:[d.hargaLalu, d.hargaNow],
         backgroundColor:['#9ca3af','#0057a8'],
         borderRadius:8
       }]
     },
-    options:{plugins:{legend:{display:false}}}
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true}}
+    }
   });
 }
 </script>
