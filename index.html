@@ -4,40 +4,156 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Monitoring Harga</title>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-body{font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;padding:24px}
-.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:20px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
-select{padding:8px;width:100%;border-radius:8px;margin-bottom:8px}
-canvas{height:340px!important}
-small{color:#6b7280}
+:root{
+  --bps-blue:#0057a8;
+  --bps-blue-soft:#e9f2fb;
+  --bps-gray:#f4f6f8;
+  --text-dark:#1f2937;
+  --text-muted:#6b7280;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  padding:24px;
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--bps-gray);
+  color:var(--text-dark);
+}
+
+h1{
+  font-size:22px;
+  margin-bottom:20px;
+  color:var(--bps-blue);
+}
+
+.dashboard{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:24px;
+}
+
+.card{
+  background:#fff;
+  border-radius:14px;
+  padding:16px 18px;
+  box-shadow:0 6px 18px rgba(0,0,0,.06);
+}
+
+.card h3{
+  font-size:14px;
+  font-weight:600;
+  margin-bottom:12px;
+  color:var(--bps-blue);
+}
+
+select{
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #d1d5db;
+  font-size:14px;
+}
+
+.sidebar{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.main{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+}
+
+.kpi{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.kpi .value{
+  font-size:26px;
+  font-weight:700;
+  color:var(--bps-blue);
+}
+
+.kpi .label{
+  font-size:12px;
+  color:var(--text-muted);
+}
+
+.full{
+  grid-column:1/-1;
+}
+
+ul{
+  padding-left:18px;
+  margin:0;
+}
+li{
+  margin-bottom:8px;
+  font-size:14px;
+}
+
+canvas{
+  height:320px!important;
+}
 </style>
 </head>
 
 <body>
 
-<div class="card">
-  <h3>Pilih Bulan</h3>
-  <select id="monthSelect"></select>
-</div>
+<h1>Dashboard Monitoring Harga</h1>
 
-<div class="card">
-  <h3>5 Fenomena Perubahan Harga Tertinggi</h3>
-  <ul id="fenomenaList"></ul>
-</div>
+<div class="dashboard">
 
-<div class="card">
-  <h3>Filter Grafik</h3>
-  <select id="commoditySelect"></select>
-  <select id="activitySelect"></select>
-</div>
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="card">
+      <h3>Pilih Bulan</h3>
+      <select id="monthSelect"></select>
+    </div>
 
-<div class="card">
-  <h3>Pergerakan Harga Komoditas<br>
-    <small>Perbandingan Bulan Sebelumnya vs Bulan Terpilih</small>
-  </h3>
-  <canvas id="priceChart"></canvas>
+    <div class="card">
+      <h3>Pilih Komoditas</h3>
+      <select id="commoditySelect"></select>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="card kpi">
+      <div class="value" id="kpiKomoditas">0</div>
+      <div class="label">Jumlah Komoditas</div>
+    </div>
+
+    <div class="card kpi">
+      <div class="value" id="kpiFenomena">0</div>
+      <div class="label">Fenomena Harga</div>
+    </div>
+
+    <div class="card kpi">
+      <div class="value" id="kpiRata">0</div>
+      <div class="label">Rata-rata Perubahan</div>
+    </div>
+
+    <div class="card full">
+      <h3>5 Fenomena Perubahan Harga Tertinggi</h3>
+      <ul id="fenomenaList"></ul>
+    </div>
+
+    <div class="card full">
+      <h3>Pergerakan Harga (Bulan-1 vs Bulan Terpilih)</h3>
+      <canvas id="priceChart"></canvas>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -45,174 +161,105 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
-/* === URUTAN BULAN RESMI === */
-const MONTH_ORDER = [
-  'Januari','Februari','Maret','April','Mei','Juni',
-  'Juli','Agustus','September','Oktober','November','Desember'
-];
+let data=[],chart,months=[];
 
-let allData=[],chart,fenomenaBulanan=[];
-
-/* CSV parser */
-function parseCSV(text){
-  const rows=[],cur=[]; let v='',q=false;
-  for(const c of text){
-    if(c === '"') q=!q;
-    else if(c===',' && !q){cur.push(v);v='';}
-    else if(c==='\n' && !q){cur.push(v);rows.push(cur.splice(0));v='';}
-    else v+=c;
+function parseCSV(t){
+  const r=[],c=[];let v='',q=false;
+  for(const x of t){
+    if(x=='"')q=!q;
+    else if(x==','&&!q){c.push(v);v='';}
+    else if(x=='\n'&&!q){c.push(v);r.push(c.splice(0));v='';}
+    else v+=x;
   }
-  cur.push(v); rows.push(cur);
-  return rows;
+  c.push(v);r.push(c);
+  return r;
 }
 
-fetch(CSV_URL).then(r=>r.text()).then(text=>{
-  const rows=parseCSV(text).slice(1);
-  allData=rows.map(c=>({
+fetch(CSV_URL).then(r=>r.text()).then(t=>{
+  const rows=parseCSV(t).slice(1);
+  data=rows.map(c=>({
     bulan:c[2],
     kegiatan:c[1],
     komoditas:c[5],
-    selisih:+c[8],
-    alasan:c[9]||'-'
-  })).filter(d=>d.bulan && d.komoditas);
+    selisih:+c[8]
+  })).filter(d=>d.bulan&&d.komoditas);
 
+  months=[...new Set(data.map(d=>d.bulan))].sort();
   init();
 });
 
 function init(){
   const ms=document.getElementById('monthSelect');
-  const months=[...new Set(allData.map(d=>d.bulan))]
-    .sort((a,b)=>MONTH_ORDER.indexOf(a)-MONTH_ORDER.indexOf(b));
-
   months.forEach(m=>ms.add(new Option(m,m)));
   ms.onchange=onMonthChange;
   onMonthChange();
 }
 
-function getPreviousMonth(month){
-  const idx=MONTH_ORDER.indexOf(month);
-  return idx>0 ? MONTH_ORDER[idx-1] : null;
-}
-
 function onMonthChange(){
-  const bulan=document.getElementById('monthSelect').value;
-  const dataBulan=allData.filter(d=>d.bulan===bulan);
+  const bulan=monthSelect.value;
+  const bulanData=data.filter(d=>d.bulan===bulan);
 
-  /* === FENOMENA (TIDAK DIUBAH) === */
+  const komoditas=[...new Set(bulanData.map(d=>d.komoditas))];
+  commoditySelect.innerHTML='';
+  komoditas.forEach(k=>commoditySelect.add(new Option(k,k)));
+  commoditySelect.onchange=drawChart;
+
+  // KPI
+  document.getElementById('kpiKomoditas').innerText=komoditas.length;
+  document.getElementById('kpiFenomena').innerText=bulanData.length;
+  document.getElementById('kpiRata').innerText=
+    (bulanData.reduce((a,b)=>a+Math.abs(b.selisih),0)/bulanData.length||0)
+    .toFixed(0);
+
+  // Fenomena
   const map={};
-  dataBulan.forEach(d=>{
-    const key=d.komoditas+'|'+d.kegiatan;
-    map[key]=(map[key]||0)+Math.abs(d.selisih);
+  bulanData.forEach(d=>{
+    const k=d.komoditas+'|'+d.kegiatan;
+    map[k]=(map[k]||0)+Math.abs(d.selisih);
   });
 
-  fenomenaBulanan=Object.entries(map)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,5);
-
-  renderFenomena(dataBulan);
-
-  /* === KOMODITAS === */
-  const cs=document.getElementById('commoditySelect');
-  cs.innerHTML='';
-  [...new Set(dataBulan.map(d=>d.komoditas))]
-    .forEach(k=>cs.add(new Option(k,k)));
-  cs.onchange=onCommodityChange;
-
-  onCommodityChange();
-}
-
-function onCommodityChange(){
-  const bulan=document.getElementById('monthSelect').value;
-  const kom=document.getElementById('commoditySelect').value;
-
-  const dataFilter=allData.filter(d=>d.bulan===bulan && d.komoditas===kom);
-
-  const as=document.getElementById('activitySelect');
-  as.innerHTML='';
-  [...new Set(dataFilter.map(d=>d.kegiatan))]
-    .forEach(k=>as.add(new Option(k,k)));
-  as.onchange=drawChart;
+  const top=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  fenomenaList.innerHTML='';
+  top.forEach(([k,v])=>{
+    const [kom,keg]=k.split('|');
+    fenomenaList.innerHTML+=`<li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
+  });
 
   drawChart();
 }
 
-function renderFenomena(dataBulan){
-  const ul=document.getElementById('fenomenaList');
-  ul.innerHTML='';
-  fenomenaBulanan.forEach(([key,val])=>{
-    const [kom,keg]=key.split('|');
-    const rows=dataBulan.filter(d=>d.komoditas===kom && d.kegiatan===keg);
-
-    const alasan=rows.reduce((a,b)=>{
-      a[b.alasan]=(a[b.alasan]||0)+1;
-      return a;
-    },{});
-
-    const topAlasan=Object.entries(alasan)
-      .sort((a,b)=>b[1]-a[1])[0][0];
-
-    ul.innerHTML+=`
-      <li>
-        <b>${kom}</b><br>
-        <small>Jenis Kegiatan: <b>${keg}</b></small><br>
-        Fenomena: <b>${topAlasan}</b><br>
-        Total Perubahan: <b>${val.toLocaleString('id-ID')}</b>
-      </li>`;
-  });
-}
-
 function drawChart(){
-  const bulan=document.getElementById('monthSelect').value;
-  const prev=getPreviousMonth(bulan);
+  const bulan=monthSelect.value;
+  const idx=months.indexOf(bulan);
+  if(idx<=0) return;
 
-  const kom=document.getElementById('commoditySelect').value;
-  const keg=document.getElementById('activitySelect').value;
+  const prev=months[idx-1];
+  const kom=commoditySelect.value;
 
-  const dNow=allData.filter(d=>d.bulan===bulan && d.komoditas===kom && d.kegiatan===keg);
-  const dPrev=prev ? allData.filter(d=>d.bulan===prev && d.komoditas===kom && d.kegiatan===keg) : [];
+  const dPrev=data.filter(d=>d.bulan===prev&&d.komoditas===kom);
+  const dNow=data.filter(d=>d.bulan===bulan&&d.komoditas===kom);
 
-  if(chart) chart.destroy();
-  chart=new Chart(document.getElementById('priceChart'),{
-    type:'line',
+  const labels=[...new Set([...dPrev,...dNow].map(d=>d.kegiatan))];
+
+  if(chart)chart.destroy();
+  chart=new Chart(priceChart,{
+    type:'bar',
     data:{
-      labels:[keg],
+      labels,
       datasets:[
-        ...(prev ? [{
-          label:prev,
-          data:[dPrev.reduce((s,d)=>s+d.selisih,0)],
-          borderColor:'#9ca3af',
-          backgroundColor:'rgba(156,163,175,0.15)',
-          pointRadius:5
-        }] : []),
-        {
-          label:bulan,
-          data:[dNow.reduce((s,d)=>s+d.selisih,0)],
-          borderColor:'#2563eb',
-          backgroundColor:'rgba(37,99,235,0.2)',
-          pointRadius:6
-        }
+        {label:prev,data:labels.map(l=>(dPrev.find(x=>x.kegiatan===l)||{}).selisih||0),
+         backgroundColor:'#9ca3af'},
+        {label:bulan,data:labels.map(l=>(dNow.find(x=>x.kegiatan===l)||{}).selisih||0),
+         backgroundColor:'#0057a8'}
       ]
     },
     options:{
-      plugins:{
-        legend:{position:'bottom'},
-        tooltip:{
-          callbacks:{
-            label:c=>`${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}`
-          }
-        }
-      },
-      scales:{
-        x:{grid:{display:false}},
-        y:{
-          grid:{color:'#e5e7eb'},
-          ticks:{callback:v=>v.toLocaleString('id-ID')}
-        }
-      }
+      responsive:true,
+      plugins:{legend:{position:'bottom'}},
+      borderRadius:6
     }
   });
 }
-
 });
 </script>
 
