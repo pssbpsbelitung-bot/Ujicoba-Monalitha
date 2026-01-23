@@ -162,16 +162,15 @@ fetch(CSV_URL)
   const rows = parseCSV(text);
 
   data = rows.slice(1).map(r => ({
-    bulan     : r[2],
-    kegiatan  : r[1],
+    bulan      : r[2],
+    kegiatan   : r[1],
 
-    // 🔒 KOMODITAS DIKUNCI
-    // Kolom G
-    // Judul: "Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)"
-    komoditas : r[7] ? r[7].trim() : '',
+    // 🔒 KOMODITAS FINAL
+    // Kolom G → CSV index 6
+    komoditas  : r[6],
 
-    hargaLalu : Number(r[8]),
-    hargaNow  : Number(r[9])
+    hargaLalu  : Number(r[8]),
+    hargaNow   : Number(r[9])
   }))
   .filter(d => d.bulan && d.komoditas);
 
