@@ -51,8 +51,8 @@ select{
 .full{grid-column:1/-1}
 ul{margin:0;padding-left:18px}
 li{font-size:14px;margin-bottom:10px}
-canvas{height:320px!important}
 .alasan{font-size:12px;color:#374151;margin-top:4px}
+canvas{height:320px!important}
 </style>
 </head>
 
@@ -62,6 +62,7 @@ canvas{height:320px!important}
 
 <div class="dashboard">
 
+<!-- FILTER -->
 <div>
   <div class="card">
     <h3>Pilih Bulan</h3>
@@ -77,36 +78,91 @@ canvas{height:320px!important}
   </div>
 </div>
 
+<!-- MAIN -->
 <div class="main">
 
-<div class="card kpi"><div class="value" id="kpiKomoditas">0</div><div class="label">Jumlah Komoditas</div></div>
-<div class="card kpi"><div class="value" id="kpiFenomena">0</div><div class="label">Jumlah Fenomena</div></div>
-<div class="card kpi"><div class="value" id="kpiRata">0</div><div class="label">Rata-rata Perubahan (%)</div></div>
-<div class="card kpi"><div class="value" id="kpiPerubahan">0%</div><div class="label">Perubahan Terpilih</div></div>
+  <div class="card kpi">
+    <div class="value" id="kpiKomoditas">0</div>
+    <div class="label">Jumlah Komoditas</div>
+  </div>
 
-<div class="card full">
-  <h3>10 Fenomena Perubahan Harga Tertinggi</h3>
-  <ul id="fenomenaList"></ul>
-</div>
+  <div class="card kpi">
+    <div class="value" id="kpiFenomena">0</div>
+    <div class="label">Jumlah Fenomena</div>
+  </div>
 
-<div class="card full">
-  <h3>Perbandingan Harga</h3>
-  <canvas id="priceChart"></canvas>
-</div>
+  <div class="card kpi">
+    <div class="value" id="kpiRata">0</div>
+    <div class="label">Rata-rata Perubahan (%)</div>
+  </div>
+
+  <div class="card kpi">
+    <div class="value" id="kpiPerubahan">0%</div>
+    <div class="label">Perubahan Terpilih</div>
+  </div>
+
+  <div class="card full">
+    <h3>10 Fenomena Perubahan Harga Tertinggi</h3>
+    <ul id="fenomenaList"></ul>
+  </div>
+
+  <div class="card full">
+    <h3>Perbandingan Harga</h3>
+    <canvas id="priceChart"></canvas>
+  </div>
 
 </div>
 </div>
 
 <script>
-const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
-let data=[],chart=null;
+const CSV_URL =
+"https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
-function parseCSV(t){
-  return t.split(/\r?\n/).map(r=>r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v=>v.replace(/^"|"$/g,'').trim()))
+let data = [];
+let chart = null;
+
+/* ======================
+   CSV PARSER
+====================== */
+function parseCSV(text){
+  return text.split(/\r?\n/).map(row =>
+    row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+       .map(v => v.replace(/^"|"$/g,'').trim())
+  );
 }
 
-function getAlasan(k){
-  k=k.toLowerCase();
+/* ======================
+   VALID DATA CHECK (KUNCI BUG)
+====================== */
+function hasValidData(bulan){
+  return data.some(d =>
+    d.bulan === bulan &&
+    (d.hargaLalu > 0 || d.hargaNow > 0)
+  );
+}
+
+/* ======================
+   RESET UI TOTAL
+====================== */
+function resetUI(){
+  commoditySelect.innerHTML = '';
+  activitySelect.innerHTML = '';
+  fenomenaList.innerHTML = '';
+  kpiKomoditas.innerText = 0;
+  kpiFenomena.innerText = 0;
+  kpiRata.innerText = 0;
+  kpiPerubahan.innerText = '0%';
+  if(chart){
+    chart.destroy();
+    chart = null;
+  }
+}
+
+/* ======================
+   ALASAN / FENOMENA
+====================== */
+function getAlasan(komoditas){
+  const k = komoditas.toLowerCase();
   if(k.includes('sapi')) return 'Meningkatnya permintaan sapi potong serta terbatasnya pasokan.';
   if(k.includes('emas')) return 'Kenaikan harga emas dunia dan fluktuasi nilai tukar.';
   if(k.includes('bawang')) return 'Berkurangnya pasokan dari daerah sentra produksi.';
@@ -114,94 +170,160 @@ function getAlasan(k){
   return 'Perubahan pasokan dan permintaan pasar.';
 }
 
-fetch(CSV_URL).then(r=>r.text()).then(t=>{
-  const r=parseCSV(t),h=r[0];
-  const i={
-    b:h.indexOf('Bulan'),
-    k:h.indexOf('Jenis Kegiatan'),
-    m:h.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
-    l:h.indexOf('Harga Sebelumnya'),
-    n:h.indexOf('Harga Sekarang')
+/* ======================
+   LOAD DATA
+====================== */
+fetch(CSV_URL)
+.then(res => res.text())
+.then(text => {
+  const rows = parseCSV(text);
+  const header = rows[0];
+
+  const idx = {
+    bulan     : header.indexOf('Bulan'),
+    kegiatan  : header.indexOf('Jenis Kegiatan'),
+    komoditas : header.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
+    hargaLalu : header.indexOf('Harga Sebelumnya'),
+    hargaNow  : header.indexOf('Harga Sekarang')
   };
-  data=r.slice(1).map(x=>({
-    bulan:x[i.b],kegiatan:x[i.k],komoditas:x[i.m],
-    hargaLalu:+x[i.l]||0,hargaNow:+x[i.n]||0
-  })).filter(d=>d.bulan&&d.komoditas);
+
+  data = rows.slice(1).map(r => ({
+    bulan     : r[idx.bulan],
+    kegiatan  : r[idx.kegiatan],
+    komoditas : r[idx.komoditas],
+    hargaLalu : Number(r[idx.hargaLalu]) || 0,
+    hargaNow  : Number(r[idx.hargaNow]) || 0
+  })).filter(d => d.bulan && d.komoditas);
+
   init();
 });
 
+/* ======================
+   INIT (HANYA BULAN VALID)
+====================== */
 function init(){
-  [...new Set(data.map(d=>d.bulan))].forEach(b=>monthSelect.add(new Option(b,b)));
-  monthSelect.onchange=updateKomoditas;
+  const bulanValid = [...new Set(data.map(d => d.bulan))]
+    .filter(b => hasValidData(b));
+
+  monthSelect.innerHTML = '';
+  bulanValid.forEach(b => monthSelect.add(new Option(b,b)));
+
+  monthSelect.onchange = updateKomoditas;
   updateKomoditas();
 }
 
-function resetUI(){
-  commoditySelect.innerHTML='';
-  activitySelect.innerHTML='';
-  kpiKomoditas.innerText=0;
-  kpiFenomena.innerText=0;
-  kpiRata.innerText=0;
-  kpiPerubahan.innerText='0%';
-  fenomenaList.innerHTML='';
-  if(chart){chart.destroy();chart=null;}
-}
-
+/* ======================
+   KOMODITAS
+====================== */
 function updateKomoditas(){
-  const list=data.filter(d=>d.bulan===monthSelect.value);
   resetUI();
-  if(!list.length) return;
-  [...new Set(list.map(d=>d.komoditas))].forEach(k=>commoditySelect.add(new Option(k,k)));
-  kpiKomoditas.innerText=commoditySelect.length;
-  commoditySelect.onchange=updateKegiatan;
+  const bulan = monthSelect.value;
+  if(!hasValidData(bulan)) return;
+
+  const list = data.filter(d => d.bulan === bulan);
+  const komoditas = [...new Set(list.map(d => d.komoditas))];
+
+  komoditas.forEach(k => commoditySelect.add(new Option(k,k)));
+  kpiKomoditas.innerText = komoditas.length;
+
+  commoditySelect.onchange = updateKegiatan;
   updateKegiatan();
 }
 
+/* ======================
+   KEGIATAN
+====================== */
 function updateKegiatan(){
-  const list=data.filter(d=>d.bulan===monthSelect.value&&d.komoditas===commoditySelect.value);
-  activitySelect.innerHTML='';
-  list.map(d=>d.kegiatan).filter((v,i,a)=>a.indexOf(v)===i)
-    .forEach(k=>activitySelect.add(new Option(k,k)));
-  activitySelect.onchange=renderAll;
+  activitySelect.innerHTML = '';
+  const bulan = monthSelect.value;
+  const kom = commoditySelect.value;
+
+  const kegiatan = [...new Set(
+    data.filter(d => d.bulan === bulan && d.komoditas === kom)
+        .map(d => d.kegiatan)
+  )];
+
+  kegiatan.forEach(k => activitySelect.add(new Option(k,k)));
+  activitySelect.onchange = renderAll;
   renderAll();
 }
 
-function renderAll(){
-  updateFenomena();
-  drawChart();
-}
-
+/* ======================
+   FENOMENA
+====================== */
 function updateFenomena(){
-  const map={};
-  data.filter(d=>d.bulan===monthSelect.value).forEach(d=>{
-    const k=d.komoditas+'|'+d.kegiatan;
-    map[k]=(map[k]||0)+Math.abs(d.hargaNow-d.hargaLalu);
+  const bulan = monthSelect.value;
+  if(!hasValidData(bulan)) return;
+
+  const map = {};
+  data.filter(d => d.bulan === bulan).forEach(d => {
+    const key = d.komoditas + '|' + d.kegiatan;
+    map[key] = (map[key] || 0) + Math.abs(d.hargaNow - d.hargaLalu);
   });
-  const top=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  fenomenaList.innerHTML='';
-  top.forEach(([k,v])=>{
-    const [kom,keg]=k.split('|');
-    fenomenaList.innerHTML+=`
+
+  const top10 = Object.entries(map)
+    .sort((a,b) => b[1] - a[1])
+    .slice(0,10);
+
+  fenomenaList.innerHTML = '';
+  top10.forEach(([k,v]) => {
+    const [kom,keg] = k.split('|');
+    fenomenaList.innerHTML += `
       <li>
         <b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})
         <div class="alasan">Alasan: ${getAlasan(kom)}</div>
       </li>`;
   });
-  kpiFenomena.innerText=Object.keys(map).length;
+
+  kpiFenomena.innerText = Object.keys(map).length;
 }
 
+/* ======================
+   RENDER ALL
+====================== */
+function renderAll(){
+  updateFenomena();
+  drawChart();
+}
+
+/* ======================
+   CHART
+====================== */
 function drawChart(){
-  if(!activitySelect.value) return;
-  const d=data.find(x=>x.bulan===monthSelect.value&&x.komoditas===commoditySelect.value&&x.kegiatan===activitySelect.value);
+  const bulan = monthSelect.value;
+  const kom   = commoditySelect.value;
+  const keg   = activitySelect.value;
+
+  const d = data.find(x =>
+    x.bulan === bulan &&
+    x.komoditas === kom &&
+    x.kegiatan === keg
+  );
   if(!d) return;
-  const p=d.hargaLalu?((d.hargaNow-d.hargaLalu)/d.hargaLalu)*100:0;
-  kpiPerubahan.innerText=p.toFixed(2)+'%';
-  kpiRata.innerText=Math.abs(p).toFixed(1);
+
+  const persen = d.hargaLalu
+    ? ((d.hargaNow - d.hargaLalu) / d.hargaLalu) * 100
+    : 0;
+
+  kpiPerubahan.innerText = persen.toFixed(2) + '%';
+  kpiRata.innerText = Math.abs(persen).toFixed(1);
+
   if(chart) chart.destroy();
-  chart=new Chart(priceChart,{
+
+  chart = new Chart(priceChart,{
     type:'bar',
-    data:{labels:['Harga Sebelumnya','Harga Sekarang'],datasets:[{data:[d.hargaLalu,d.hargaNow],backgroundColor:['#9ca3af','#0057a8'],borderRadius:8}]},
-    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+    data:{
+      labels:['Harga Sebelumnya','Harga Sekarang'],
+      datasets:[{
+        data:[d.hargaLalu, d.hargaNow],
+        backgroundColor:['#9ca3af','#0057a8'],
+        borderRadius:8
+      }]
+    },
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true}}
+    }
   });
 }
 </script>
