@@ -53,7 +53,7 @@ ul{margin:0;padding-left:18px}
 li{font-size:14px;margin-bottom:10px}
 canvas{height:320px!important}
 .alasan{font-size:12px;color:#374151;margin-top:4px}
-.empty{color:#9ca3af;font-size:14px}
+.empty{color:#9ca3af}
 </style>
 </head>
 
@@ -103,11 +103,18 @@ canvas{height:320px!important}
 </div>
 
 <script>
-const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
-let data=[],chart=null;
+/* =======================
+   LINK CSV FINAL (BARU)
+   ======================= */
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYuI4h54ZH8ZvdsNfJWm82mh4s_tbFzSdN6iX2eNbnjKVI0qHmjVtUPGrcAqs8iaA-M7mVeUfBhMdk/pub?output=csv";
 
+let data=[], chart=null;
+
+/* ===== UTIL ===== */
 function parseCSV(t){
-  return t.split(/\r?\n/).map(r=>r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v=>v.replace(/^"|"$/g,'').trim()));
+  return t.split(/\r?\n/)
+    .map(r=>r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+    .map(v=>v.replace(/^"|"$/g,'').trim()));
 }
 
 function normalizeBulan(b){
@@ -137,29 +144,37 @@ function getAlasan(k){
   return 'Perubahan pasokan dan permintaan pasar.';
 }
 
-fetch(CSV_URL).then(r=>r.text()).then(t=>{
-  const r=parseCSV(t),h=r[0];
-  const i={
-    b:h.indexOf('Bulan'),
-    k:h.indexOf('Jenis Kegiatan'),
-    m:h.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
-    l:h.indexOf('Harga Sebelumnya'),
-    n:h.indexOf('Harga Sekarang')
+/* ===== LOAD DATA ===== */
+fetch(CSV_URL)
+.then(r=>r.text())
+.then(t=>{
+  const r=parseCSV(t);
+  const h=r[0];
+
+  const idx={
+    bulan:h.indexOf('Bulan'),
+    kegiatan:h.indexOf('Jenis Kegiatan'),
+    komoditas:h.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
+    hargaLalu:h.indexOf('Harga Sebelumnya'),
+    hargaNow:h.indexOf('Harga Sekarang')
   };
 
   data=r.slice(1).map(x=>({
-    bulan:normalizeBulan(x[i.b]),
-    kegiatan:x[i.k],
-    komoditas:x[i.m],
-    hargaLalu:+x[i.l]||0,
-    hargaNow:+x[i.n]||0
+    bulan:normalizeBulan(x[idx.bulan]),
+    kegiatan:x[idx.kegiatan],
+    komoditas:x[idx.komoditas],
+    hargaLalu:Number(x[idx.hargaLalu])||0,
+    hargaNow:Number(x[idx.hargaNow])||0
   })).filter(d=>d.bulan && d.komoditas);
 
   init();
 });
 
+/* ===== UI LOGIC ===== */
 function init(){
-  [...new Set(data.map(d=>d.bulan))].forEach(b=>monthSelect.add(new Option(b,b)));
+  [...new Set(data.map(d=>d.bulan))].forEach(b=>{
+    monthSelect.add(new Option(b,b));
+  });
   monthSelect.onchange=updateKomoditas;
 }
 
@@ -179,7 +194,9 @@ function updateKomoditas(){
   const list=data.filter(d=>d.bulan===monthSelect.value);
   if(!list.length) return;
 
-  [...new Set(list.map(d=>d.komoditas))].forEach(k=>commoditySelect.add(new Option(k,k)));
+  [...new Set(list.map(d=>d.komoditas))].forEach(k=>{
+    commoditySelect.add(new Option(k,k));
+  });
   kpiKomoditas.innerText=commoditySelect.length;
   commoditySelect.onchange=updateKegiatan;
   updateKegiatan();
@@ -187,8 +204,13 @@ function updateKomoditas(){
 
 function updateKegiatan(){
   activitySelect.innerHTML='';
-  const list=data.filter(d=>d.bulan===monthSelect.value && d.komoditas===commoditySelect.value);
-  [...new Set(list.map(d=>d.kegiatan))].forEach(k=>activitySelect.add(new Option(k,k)));
+  const list=data.filter(d=>
+    d.bulan===monthSelect.value &&
+    d.komoditas===commoditySelect.value
+  );
+  [...new Set(list.map(d=>d.kegiatan))].forEach(k=>{
+    activitySelect.add(new Option(k,k));
+  });
   activitySelect.onchange=renderAll;
   renderAll();
 }
@@ -201,36 +223,56 @@ function renderAll(){
 function updateFenomena(){
   const map={};
   data.filter(d=>d.bulan===monthSelect.value).forEach(d=>{
-    const k=d.komoditas+'|'+d.kegiatan;
-    map[k]=(map[k]||0)+Math.abs(d.hargaNow-d.hargaLalu);
+    const key=d.komoditas+'|'+d.kegiatan;
+    map[key]=(map[key]||0)+Math.abs(d.hargaNow-d.hargaLalu);
   });
 
   fenomenaList.innerHTML='';
-  Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10).forEach(([k,v])=>{
-    const [kom,keg]=k.split('|');
-    fenomenaList.innerHTML+=`
-      <li>
-        <b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})
-        <div class="alasan">Alasan: ${getAlasan(kom)}</div>
-      </li>`;
-  });
+  Object.entries(map)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,10)
+    .forEach(([k,v])=>{
+      const [kom,keg]=k.split('|');
+      fenomenaList.innerHTML+=`
+        <li>
+          <b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})
+          <div class="alasan">Alasan: ${getAlasan(kom)}</div>
+        </li>`;
+    });
 
   kpiFenomena.innerText=Object.keys(map).length;
 }
 
 function drawChart(){
-  const d=data.find(x=>x.bulan===monthSelect.value && x.komoditas===commoditySelect.value && x.kegiatan===activitySelect.value);
+  const d=data.find(x=>
+    x.bulan===monthSelect.value &&
+    x.komoditas===commoditySelect.value &&
+    x.kegiatan===activitySelect.value
+  );
   if(!d) return;
 
-  const p=d.hargaLalu?((d.hargaNow-d.hargaLalu)/d.hargaLalu)*100:0;
+  const p=d.hargaLalu
+    ? ((d.hargaNow-d.hargaLalu)/d.hargaLalu)*100
+    : 0;
+
   kpiPerubahan.innerText=p.toFixed(2)+'%';
   kpiRata.innerText=Math.abs(p).toFixed(1);
 
   if(chart) chart.destroy();
   chart=new Chart(priceChart,{
     type:'bar',
-    data:{labels:['Harga Sebelumnya','Harga Sekarang'],datasets:[{data:[d.hargaLalu,d.hargaNow],backgroundColor:['#9ca3af','#0057a8'],borderRadius:8}]},
-    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+    data:{
+      labels:['Harga Sebelumnya','Harga Sekarang'],
+      datasets:[{
+        data:[d.hargaLalu,d.hargaNow],
+        backgroundColor:['#9ca3af','#0057a8'],
+        borderRadius:8
+      }]
+    },
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true}}
+    }
   });
 }
 </script>
