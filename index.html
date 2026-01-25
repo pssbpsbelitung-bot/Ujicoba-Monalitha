@@ -38,7 +38,7 @@ h1{color:var(--bps-blue);margin-bottom:20px}
   font-weight:600;
   color:var(--bps-blue);
 }
-select,input{
+select{
   width:100%;
   padding:10px;
   border-radius:8px;
@@ -70,17 +70,21 @@ canvas{height:320px!important}
     </select>
   </div><br>
 
-  <!-- ✅ TAMBAHAN TIMESTAMP -->
+  <!-- ✅ TIMESTAMP DROPDOWN (TINGGAL PILIH) -->
   <div class="card">
     <h3>Filter Timestamp</h3>
 
     <label style="font-size:12px;color:#6b7280">Dari</label>
-    <input type="datetime-local" id="timeFrom">
+    <select id="timeFrom">
+      <option value="">-- Dari Timestamp --</option>
+    </select>
 
     <br><br>
 
     <label style="font-size:12px;color:#6b7280">Sampai</label>
-    <input type="datetime-local" id="timeTo">
+    <select id="timeTo">
+      <option value="">-- Sampai Timestamp --</option>
+    </select>
   </div><br>
   <!-- END TIMESTAMP -->
 
@@ -152,14 +156,24 @@ function parseNumber(v){
   return Number(v.replace(/\./g,'').replace(/,/g,'.'));
 }
 
-/* ✅ FILTER TIMESTAMP */
+/* ✅ PARSER TIMESTAMP GOOGLE FORM */
+function parseTimestamp(v){
+  if(!v) return null;
+  const [d,t]=v.split(' ');
+  const [dd,mm,yy]=d.split('/').map(Number);
+  const [hh,mi,ss]=t.split(':').map(Number);
+  return new Date(yy,mm-1,dd,hh,mi,ss);
+}
+
+/* ✅ FILTER BERDASARKAN DROPDOWN TIMESTAMP */
 function filterByTime(list){
-  const f=timeFrom.value?new Date(timeFrom.value):null;
-  const t=timeTo.value?new Date(timeTo.value):null;
+  const f=timeFrom.value?Number(timeFrom.value):null;
+  const t=timeTo.value?Number(timeTo.value):null;
 
   return list.filter(d=>{
-    if(f && d.timestamp<f) return false;
-    if(t && d.timestamp>t) return false;
+    const ts=d.timestamp.getTime();
+    if(f && ts<f) return false;
+    if(t && ts>t) return false;
     return true;
   });
 }
@@ -180,20 +194,21 @@ fetch(CSV_URL)
   };
 
   data=r.slice(1).map(x=>({
-    timestamp:new Date(x[idx.timestamp]),
+    timestamp:parseTimestamp(x[idx.timestamp]),
     bulan:normalizeBulan(x[idx.bulan]),
     kegiatan:x[idx.kegiatan],
     komoditas:x[idx.komoditas],
     hargaSebelum:parseNumber(x[idx.hargaSebelum]),
     hargaSekarang:parseNumber(x[idx.hargaSekarang])
-  })).filter(d=>
-    d.bulan &&
-    d.komoditas &&
-    !isNaN(d.hargaSebelum) &&
-    !isNaN(d.hargaSekarang) &&
-    d.timestamp instanceof Date &&
-    !isNaN(d.timestamp)
-  );
+  })).filter(d=>d.timestamp && d.bulan && d.komoditas && !isNaN(d.hargaSebelum) && !isNaN(d.hargaSekarang));
+
+  /* isi dropdown timestamp */
+  const ts=[...new Set(data.map(d=>d.timestamp.getTime()))].sort((a,b)=>a-b);
+  ts.forEach(v=>{
+    const label=new Date(v).toLocaleString('id-ID');
+    timeFrom.add(new Option(label,v));
+    timeTo.add(new Option(label,v));
+  });
 
   init();
 });
@@ -220,9 +235,7 @@ function resetUI(){
 
 function updateKomoditas(){
   resetUI();
-  const list=filterByTime(
-    data.filter(d=>d.bulan===monthSelect.value)
-  );
+  const list=filterByTime(data.filter(d=>d.bulan===monthSelect.value));
   if(!list.length) return;
 
   [...new Set(list.map(d=>d.komoditas))].forEach(k=>{
@@ -258,13 +271,11 @@ function renderAll(){
 
 function updateFenomena(){
   const map={};
-
-  filterByTime(
-    data.filter(d=>d.bulan===monthSelect.value)
-  ).forEach(d=>{
-    const k=d.komoditas+'|'+d.kegiatan;
-    map[k]=(map[k]||0)+Math.abs(d.hargaSekarang-d.hargaSebelum);
-  });
+  filterByTime(data.filter(d=>d.bulan===monthSelect.value))
+    .forEach(d=>{
+      const k=d.komoditas+'|'+d.kegiatan;
+      map[k]=(map[k]||0)+Math.abs(d.hargaSekarang-d.hargaSebelum);
+    });
 
   fenomenaList.innerHTML='';
   Object.entries(map)
@@ -272,8 +283,7 @@ function updateFenomena(){
     .slice(0,10)
     .forEach(([k,v])=>{
       const [kom,keg]=k.split('|');
-      fenomenaList.innerHTML+=`
-        <li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
+      fenomenaList.innerHTML+=`<li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
     });
 
   kpiFenomena.innerText=Object.keys(map).length;
