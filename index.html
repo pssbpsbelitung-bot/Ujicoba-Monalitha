@@ -148,8 +148,8 @@ fetch(CSV_URL)
     bulan:normalizeBulan(x[idx.bulan]),
     kegiatan:x[idx.kegiatan],
     komoditas:x[idx.komoditas],
-    hargaLalu:Number(x[idx.hargaLalu]) || 0,
-    hargaNow:Number(x[idx.hargaNow]) || 0
+    hargaLalu:Number(String(x[idx.hargaLalu]).replace(/[^0-9]/g,'')) || 0,
+    hargaNow:Number(String(x[idx.hargaNow]).replace(/[^0-9]/g,'')) || 0
   })).filter(d=>d.bulan && d.komoditas);
 
   init();
@@ -267,3 +267,4 @@ function drawChart(){
 
 </body>
 </html>
+
