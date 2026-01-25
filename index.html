@@ -134,7 +134,7 @@ fetch(CSV_URL)
 .then(r=>r.text())
 .then(t=>{
   const r=parseCSV(t);
-  const h=r[0];
+  const h = r[0].map(x => x.trim());
 
   const idx={
     bulan:h.indexOf('Bulan'),
@@ -267,4 +267,5 @@ function drawChart(){
 
 </body>
 </html>
+
 
