@@ -38,7 +38,7 @@ h1{color:var(--bps-blue);margin-bottom:20px}
   font-weight:600;
   color:var(--bps-blue);
 }
-select{
+select,input{
   width:100%;
   padding:10px;
   border-radius:8px;
@@ -52,7 +52,6 @@ select{
 ul{margin:0;padding-left:18px}
 li{font-size:14px;margin-bottom:10px}
 canvas{height:320px!important}
-.alasan{font-size:12px;color:#374151;margin-top:4px}
 .empty{color:#9ca3af}
 </style>
 </head>
@@ -70,6 +69,20 @@ canvas{height:320px!important}
       <option value="">-- Pilih Bulan --</option>
     </select>
   </div><br>
+
+  <!-- ✅ TAMBAHAN TIMESTAMP -->
+  <div class="card">
+    <h3>Filter Timestamp</h3>
+
+    <label style="font-size:12px;color:#6b7280">Dari</label>
+    <input type="datetime-local" id="timeFrom">
+
+    <br><br>
+
+    <label style="font-size:12px;color:#6b7280">Sampai</label>
+    <input type="datetime-local" id="timeTo">
+  </div><br>
+  <!-- END TIMESTAMP -->
 
   <div class="card">
     <h3>Pilih Komoditas</h3>
@@ -104,6 +117,10 @@ canvas{height:320px!important}
 
 <script>
 const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
+
+const timeFrom=document.getElementById('timeFrom');
+const timeTo=document.getElementById('timeTo');
+
 let data=[],chart=null;
 
 function parseCSV(t){
@@ -130,27 +147,53 @@ function normalizeBulan(b){
   return '';
 }
 
+function parseNumber(v){
+  if(!v) return NaN;
+  return Number(v.replace(/\./g,'').replace(/,/g,'.'));
+}
+
+/* ✅ FILTER TIMESTAMP */
+function filterByTime(list){
+  const f=timeFrom.value?new Date(timeFrom.value):null;
+  const t=timeTo.value?new Date(timeTo.value):null;
+
+  return list.filter(d=>{
+    if(f && d.timestamp<f) return false;
+    if(t && d.timestamp>t) return false;
+    return true;
+  });
+}
+
 fetch(CSV_URL)
 .then(r=>r.text())
 .then(t=>{
   const r=parseCSV(t);
-  const h = r[0].map(x => x.trim());
+  const h=r[0];
 
   const idx={
+    timestamp:h.indexOf('Timestamp'),
     bulan:h.indexOf('Bulan'),
     kegiatan:h.indexOf('Jenis Kegiatan'),
     komoditas:h.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
-    hargaLalu:h.indexOf('Harga Sebelum'),
-    hargaNow:h.indexOf('Harga Sekarang')
+    hargaSebelum:h.indexOf('Harga Sebelum'),
+    hargaSekarang:h.indexOf('Harga Sekarang')
   };
 
   data=r.slice(1).map(x=>({
+    timestamp:new Date(x[idx.timestamp]),
     bulan:normalizeBulan(x[idx.bulan]),
     kegiatan:x[idx.kegiatan],
     komoditas:x[idx.komoditas],
-    hargaLalu:Number(String(x[idx.hargaLalu]).replace(/[^0-9]/g,'')) || 0,
-    hargaNow:Number(String(x[idx.hargaNow]).replace(/[^0-9]/g,'')) || 0
-  })).filter(d=>d.bulan && d.komoditas);
+    hargaSebelum:parseNumber(x[idx.hargaSebelum]),
+    hargaSekarang:parseNumber(x[idx.hargaSekarang])
+  })).filter(d=>
+    d.bulan &&
+    d.komoditas &&
+    !isNaN(d.hargaSebelum) &&
+    !isNaN(d.hargaSekarang) &&
+    d.timestamp instanceof Date &&
+    !isNaN(d.timestamp)
+  );
 
   init();
 });
@@ -160,6 +203,8 @@ function init(){
     monthSelect.add(new Option(b,b));
   });
   monthSelect.onchange=updateKomoditas;
+  timeFrom.onchange=updateKomoditas;
+  timeTo.onchange=updateKomoditas;
 }
 
 function resetUI(){
@@ -175,7 +220,9 @@ function resetUI(){
 
 function updateKomoditas(){
   resetUI();
-  const list=data.filter(d=>d.bulan===monthSelect.value);
+  const list=filterByTime(
+    data.filter(d=>d.bulan===monthSelect.value)
+  );
   if(!list.length) return;
 
   [...new Set(list.map(d=>d.komoditas))].forEach(k=>{
@@ -189,9 +236,11 @@ function updateKomoditas(){
 
 function updateKegiatan(){
   activitySelect.innerHTML='';
-  const list=data.filter(d=>
-    d.bulan===monthSelect.value &&
-    d.komoditas===commoditySelect.value
+  const list=filterByTime(
+    data.filter(d=>
+      d.bulan===monthSelect.value &&
+      d.komoditas===commoditySelect.value
+    )
   );
 
   [...new Set(list.map(d=>d.kegiatan))].forEach(k=>{
@@ -209,9 +258,12 @@ function renderAll(){
 
 function updateFenomena(){
   const map={};
-  data.filter(d=>d.bulan===monthSelect.value).forEach(d=>{
+
+  filterByTime(
+    data.filter(d=>d.bulan===monthSelect.value)
+  ).forEach(d=>{
     const k=d.komoditas+'|'+d.kegiatan;
-    map[k]=(map[k]||0)+Math.abs(d.hargaNow-d.hargaLalu);
+    map[k]=(map[k]||0)+Math.abs(d.hargaSekarang-d.hargaSebelum);
   });
 
   fenomenaList.innerHTML='';
@@ -221,25 +273,22 @@ function updateFenomena(){
     .forEach(([k,v])=>{
       const [kom,keg]=k.split('|');
       fenomenaList.innerHTML+=`
-        <li>
-          <b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})
-        </li>`;
+        <li><b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})</li>`;
     });
 
   kpiFenomena.innerText=Object.keys(map).length;
 }
 
 function drawChart(){
-  const d=data.find(x=>
+  const d=filterByTime(data).find(x=>
     x.bulan===monthSelect.value &&
     x.komoditas===commoditySelect.value &&
     x.kegiatan===activitySelect.value
   );
-
   if(!d) return;
 
-  const perubahan=d.hargaLalu
-    ? ((d.hargaNow-d.hargaLalu)/d.hargaLalu)*100
+  const perubahan=d.hargaSebelum
+    ? ((d.hargaSekarang-d.hargaSebelum)/d.hargaSebelum)*100
     : 0;
 
   kpiPerubahan.innerText=perubahan.toFixed(2)+'%';
@@ -252,7 +301,7 @@ function drawChart(){
     data:{
       labels:['Harga Sebelum','Harga Sekarang'],
       datasets:[{
-        data:[d.hargaLalu,d.hargaNow],
+        data:[d.hargaSebelum,d.hargaSekarang],
         backgroundColor:['#9ca3af','#0057a8'],
         borderRadius:8
       }]
@@ -267,6 +316,3 @@ function drawChart(){
 
 </body>
 </html>
-
-
-
