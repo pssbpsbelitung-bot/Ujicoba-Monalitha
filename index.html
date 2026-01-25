@@ -2,265 +2,171 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Monitoring Harga</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-:root{
-  --bps-blue:#0057a8;
-  --bg:#f3f4f6;
-  --card:#ffffff;
-  --text:#1f2937;
-  --muted:#6b7280;
-}
-*{box-sizing:border-box}
 body{
+  font-family:Arial, sans-serif;
+  background:#f3f4f6;
   margin:0;
   padding:24px;
-  font-family:Inter,system-ui,sans-serif;
-  background:var(--bg);
-  color:var(--text);
 }
-h1{color:var(--bps-blue);margin-bottom:20px}
-.dashboard{display:grid;grid-template-columns:320px 1fr;gap:24px}
 .card{
-  background:var(--card);
-  padding:16px 18px;
+  background:#fff;
+  padding:20px;
   border-radius:14px;
-  box-shadow:0 6px 18px rgba(0,0,0,.06);
-}
-.card h3{
-  margin:0 0 10px;
-  font-size:14px;
-  font-weight:600;
-  color:var(--bps-blue);
+  box-shadow:0 6px 18px rgba(0,0,0,.08);
+  margin-bottom:20px;
 }
 select{
-  width:100%;
-  padding:10px;
+  padding:8px 12px;
   border-radius:8px;
-  border:1px solid #d1d5db;
-  font-size:14px;
+  border:1px solid #ddd;
 }
-.main{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.kpi .value{font-size:26px;font-weight:700;color:var(--bps-blue)}
-.kpi .label{font-size:12px;color:var(--muted)}
-.full{grid-column:1/-1}
-ul{margin:0;padding-left:18px}
-li{font-size:14px;margin-bottom:10px}
-canvas{height:320px!important}
-.alasan{font-size:12px;color:#374151;margin-top:4px}
-.empty{color:#9ca3af}
+h2{margin-top:0}
+.alasan{
+  font-size:13px;
+  color:#555;
+  margin-top:4px;
+}
 </style>
 </head>
-
 <body>
 
-<h1>Dashboard Monitoring Harga</h1>
-
-<div class="dashboard">
-
-<div>
-  <div class="card">
-    <h3>Pilih Bulan</h3>
-    <select id="monthSelect">
-      <option value="">-- Pilih Bulan --</option>
-    </select>
-  </div><br>
-
-  <div class="card">
-    <h3>Pilih Komoditas</h3>
-    <select id="commoditySelect"></select>
-  </div><br>
-
-  <div class="card">
-    <h3>Pilih Jenis Kegiatan</h3>
-    <select id="activitySelect"></select>
-  </div>
+<div class="card">
+  <h2>Filter</h2>
+  <select id="bulan"></select>
 </div>
 
-<div class="main">
-
-<div class="card kpi"><div class="value" id="kpiKomoditas">0</div><div class="label">Jumlah Komoditas</div></div>
-<div class="card kpi"><div class="value" id="kpiFenomena">0</div><div class="label">Jumlah Fenomena</div></div>
-<div class="card kpi"><div class="value" id="kpiRata">0</div><div class="label">Rata-rata Perubahan (%)</div></div>
-<div class="card kpi"><div class="value" id="kpiPerubahan">0%</div><div class="label">Perubahan Terpilih</div></div>
-
-<div class="card full">
-  <h3>Fenomena Perubahan Harga</h3>
-  <ul id="fenomenaList"><li class="empty">Pilih bulan untuk melihat data</li></ul>
+<div class="card">
+  <h2>Grafik Perbandingan Harga</h2>
+  <canvas id="chartHarga"></canvas>
 </div>
 
-<div class="card full">
-  <h3>Perbandingan Harga</h3>
-  <canvas id="priceChart"></canvas>
-</div>
-
-</div>
+<div class="card">
+  <h2>Fenomena Harga</h2>
+  <ul id="fenomena"></ul>
 </div>
 
 <script>
-const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
-let data=[],chart=null;
+const CSV_URL =
+'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv';
 
-function parseCSV(t){
-  return t.split(/\r?\n/)
-    .map(r=>r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-    .map(v=>v.replace(/^"|"$/g,'').trim()));
+let allData=[], chart;
+
+function parseCSV(text){
+  return text.trim().split('\n').map(r=>r.split(','));
 }
 
-function normalizeBulan(b){
-  if(!b) return '';
-  b=b.toLowerCase();
-  if(b.includes('jan')) return 'Januari';
-  if(b.includes('feb')) return 'Februari';
-  if(b.includes('mar')) return 'Maret';
-  if(b.includes('apr')) return 'April';
-  if(b.includes('mei')||b.includes('may')) return 'Mei';
-  if(b.includes('jun')) return 'Juni';
-  if(b.includes('jul')) return 'Juli';
-  if(b.includes('agu')||b.includes('aug')) return 'Agustus';
-  if(b.includes('sep')) return 'September';
-  if(b.includes('okt')||b.includes('oct')) return 'Oktober';
-  if(b.includes('nov')) return 'November';
-  if(b.includes('des')||b.includes('dec')) return 'Desember';
-  return '';
+function normalizeBulan(v){
+  if(!v) return '';
+  const m=v.toLowerCase();
+  if(m.includes('jan')) return 'January';
+  if(m.includes('feb')) return 'February';
+  if(m.includes('mar')) return 'March';
+  if(m.includes('apr')) return 'April';
+  if(m.includes('mei')||m.includes('may')) return 'May';
+  if(m.includes('jun')) return 'June';
+  if(m.includes('jul')) return 'July';
+  if(m.includes('agu')||m.includes('aug')) return 'August';
+  if(m.includes('sep')) return 'September';
+  if(m.includes('okt')||m.includes('oct')) return 'October';
+  if(m.includes('nov')) return 'November';
+  if(m.includes('des')||m.includes('dec')) return 'December';
+  return v;
+}
+
+function parseNumber(v){
+  if(!v) return NaN;
+  return Number(v.replace(/\./g,'').replace(/,/g,'.'));
+}
+
+function getAlasan(kom){
+  const k=kom.toLowerCase();
+  if(k.includes('beras')) return 'Perubahan pasokan dan distribusi.';
+  if(k.includes('cabai')||k.includes('cabe')) return 'Produksi dipengaruhi faktor cuaca.';
+  if(k.includes('bawang')) return 'Pasokan dari sentra produksi menurun.';
+  return 'Dipengaruhi dinamika pasar.';
 }
 
 fetch(CSV_URL)
 .then(r=>r.text())
-.then(t=>{
-  const r=parseCSV(t);
-  const h=r[0];
+.then(text=>{
+  const rows=parseCSV(text);
+  const header=rows.shift();
 
   const idx={
-    bulan:h.indexOf('Bulan'),
-    kegiatan:h.indexOf('Jenis Kegiatan'),
-    komoditas:h.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
-    hargaLalu:h.indexOf('Harga Sebelumnya'),
-    hargaNow:h.indexOf('Harga Sekarang')
+    bulan:header.indexOf('Bulan'),
+    komoditas:header.indexOf('Komoditas'),
+    kegiatan:header.indexOf('Jenis Kegiatan'),
+    hargaSebelumnya:header.indexOf('Harga Sebelumnya'),
+    hargaSekarang:header.indexOf('Harga Sekarang')
   };
 
-  data=r.slice(1).map(x=>({
-    bulan:normalizeBulan(x[idx.bulan]),
-    kegiatan:x[idx.kegiatan],
-    komoditas:x[idx.komoditas],
-    hargaLalu:Number(x[idx.hargaLalu]) || 0,
-    hargaNow:Number(x[idx.hargaNow]) || 0
-  })).filter(d=>d.bulan && d.komoditas);
+  allData=rows.map(r=>({
+    bulan:normalizeBulan(r[idx.bulan]),
+    komoditas:r[idx.komoditas],
+    kegiatan:r[idx.kegiatan],
+    hargaSebelumnya:parseNumber(r[idx.hargaSebelumnya]),
+    hargaSekarang:parseNumber(r[idx.hargaSekarang])
+  }))
+  .filter(d=>
+    d.bulan &&
+    d.komoditas &&
+    !isNaN(d.hargaSebelumnya) &&
+    !isNaN(d.hargaSekarang)
+  );
 
-  init();
+  initBulan();
 });
 
-function init(){
-  [...new Set(data.map(d=>d.bulan))].forEach(b=>{
-    monthSelect.add(new Option(b,b));
-  });
-  monthSelect.onchange=updateKomoditas;
+function initBulan(){
+  const select=document.getElementById('bulan');
+  const bulan=[...new Set(allData.map(d=>d.bulan))];
+  select.innerHTML=bulan.map(b=>`<option>${b}</option>`).join('');
+  select.onchange=updateView;
+  updateView();
 }
 
-function resetUI(){
-  commoditySelect.innerHTML='';
-  activitySelect.innerHTML='';
-  kpiKomoditas.innerText=0;
-  kpiFenomena.innerText=0;
-  kpiRata.innerText=0;
-  kpiPerubahan.innerText='0%';
-  fenomenaList.innerHTML='<li class="empty">Tidak ada data</li>';
-  if(chart){chart.destroy();chart=null;}
+function updateView(){
+  const bulan=document.getElementById('bulan').value;
+  const list=allData.filter(d=>d.bulan===bulan);
+  updateChart(list);
+  updateFenomena(list);
 }
 
-function updateKomoditas(){
-  resetUI();
-  const list=data.filter(d=>d.bulan===monthSelect.value);
-  if(!list.length) return;
-
-  [...new Set(list.map(d=>d.komoditas))].forEach(k=>{
-    commoditySelect.add(new Option(k,k));
-  });
-
-  kpiKomoditas.innerText=commoditySelect.length;
-  commoditySelect.onchange=updateKegiatan;
-  updateKegiatan();
-}
-
-function updateKegiatan(){
-  activitySelect.innerHTML='';
-  const list=data.filter(d=>
-    d.bulan===monthSelect.value &&
-    d.komoditas===commoditySelect.value
-  );
-
-  [...new Set(list.map(d=>d.kegiatan))].forEach(k=>{
-    activitySelect.add(new Option(k,k));
-  });
-
-  activitySelect.onchange=renderAll;
-  renderAll();
-}
-
-function renderAll(){
-  updateFenomena();
-  drawChart();
-}
-
-function updateFenomena(){
-  const map={};
-  data.filter(d=>d.bulan===monthSelect.value).forEach(d=>{
-    const k=d.komoditas+'|'+d.kegiatan;
-    map[k]=(map[k]||0)+Math.abs(d.hargaNow-d.hargaLalu);
-  });
-
-  fenomenaList.innerHTML='';
-  Object.entries(map)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,10)
-    .forEach(([k,v])=>{
-      const [kom,keg]=k.split('|');
-      fenomenaList.innerHTML+=`
-        <li>
-          <b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})
-        </li>`;
-    });
-
-  kpiFenomena.innerText=Object.keys(map).length;
-}
-
-function drawChart(){
-  const d=data.find(x=>
-    x.bulan===monthSelect.value &&
-    x.komoditas===commoditySelect.value &&
-    x.kegiatan===activitySelect.value
-  );
-
-  if(!d) return;
-
-  const perubahan=d.hargaLalu
-    ? ((d.hargaNow-d.hargaLalu)/d.hargaLalu)*100
-    : 0;
-
-  kpiPerubahan.innerText=perubahan.toFixed(2)+'%';
-  kpiRata.innerText=Math.abs(perubahan).toFixed(1);
-
+function updateChart(list){
+  const ctx=document.getElementById('chartHarga');
   if(chart) chart.destroy();
-
-  chart=new Chart(priceChart,{
+  chart=new Chart(ctx,{
     type:'bar',
     data:{
-      labels:['Harga Sebelumnya','Harga Sekarang'],
-      datasets:[{
-        data:[d.hargaLalu,d.hargaNow],
-        backgroundColor:['#9ca3af','#0057a8'],
-        borderRadius:8
-      }]
-    },
-    options:{
-      plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true}}
+      labels:list.map(d=>d.komoditas),
+      datasets:[
+        {
+          label:'Harga Sebelumnya',
+          data:list.map(d=>d.hargaSebelumnya)
+        },
+        {
+          label:'Harga Sekarang',
+          data:list.map(d=>d.hargaSekarang)
+        }
+      ]
     }
+  });
+}
+
+function updateFenomena(list){
+  const ul=document.getElementById('fenomena');
+  ul.innerHTML='';
+  list.forEach(d=>{
+    ul.innerHTML+=`
+      <li>
+        <b>${d.komoditas}</b> – ${d.kegiatan}
+        <div class="alasan">Alasan: ${getAlasan(d.komoditas)}</div>
+      </li>`;
   });
 }
 </script>
