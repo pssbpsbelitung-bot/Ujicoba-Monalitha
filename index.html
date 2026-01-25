@@ -18,11 +18,9 @@
 }
 *{box-sizing:border-box}
 body{
-  margin:0;
-  padding:24px;
+  margin:0;padding:24px;
   font-family:Inter,system-ui,sans-serif;
-  background:var(--bg);
-  color:var(--text);
+  background:var(--bg);color:var(--text)
 }
 h1{color:var(--bps-blue);margin-bottom:20px}
 .dashboard{display:grid;grid-template-columns:320px 1fr;gap:24px}
@@ -30,7 +28,7 @@ h1{color:var(--bps-blue);margin-bottom:20px}
   background:var(--card);
   padding:16px 18px;
   border-radius:14px;
-  box-shadow:0 6px 18px rgba(0,0,0,.06);
+  box-shadow:0 6px 18px rgba(0,0,0,.06)
 }
 .card h3{margin:0 0 10px;font-size:14px;font-weight:600;color:var(--bps-blue)}
 select{
@@ -91,7 +89,8 @@ canvas{height:320px!important}
 </div>
 
 <script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYuI4h54ZH8ZvdsNfJWm82mh4s_tbFzSdN6iX2eNbnjKVI0qHmjVtUPGrcAqs8iaA-M7mVeUfBhMdk/pub?output=csv";
+const CSV_URL =
+"https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
 
 let data=[], chart=null;
 
@@ -112,8 +111,7 @@ function normalizeBulan(b){
 }
 
 function getAlasan(k){
-  if(k.toLowerCase().includes('beras')) return 'Perubahan pasokan dan distribusi.';
-  return 'Faktor pasokan dan permintaan.';
+  return 'Perubahan pasokan dan permintaan pasar.';
 }
 
 fetch(CSV_URL)
@@ -142,7 +140,8 @@ fetch(CSV_URL)
 });
 
 function init(){
-  [...new Set(data.map(d=>d.bulan))].forEach(b=>monthSelect.add(new Option(b,b)));
+  [...new Set(data.map(d=>d.bulan))]
+    .forEach(b=>monthSelect.add(new Option(b,b)));
   monthSelect.onchange=updateKomoditas;
 }
 
@@ -157,19 +156,25 @@ function updateKomoditas(){
   resetUI();
   const list=data.filter(d=>d.bulan===monthSelect.value);
   if(!list.length) return;
-  [...new Set(list.map(d=>d.komoditas))].forEach(k=>commoditySelect.add(new Option(k,k)));
+  [...new Set(list.map(d=>d.komoditas))]
+    .forEach(k=>commoditySelect.add(new Option(k,k)));
   commoditySelect.onchange=updateKegiatan;
 }
 
 function updateKegiatan(){
   activitySelect.innerHTML='';
   const list=data.filter(d=>d.bulan===monthSelect.value && d.komoditas===commoditySelect.value);
-  [...new Set(list.map(d=>d.kegiatan))].forEach(k=>activitySelect.add(new Option(k,k)));
+  [...new Set(list.map(d=>d.kegiatan))]
+    .forEach(k=>activitySelect.add(new Option(k,k)));
   activitySelect.onchange=drawChart;
 }
 
 function drawChart(){
-  const d=data.find(x=>x.bulan===monthSelect.value && x.komoditas===commoditySelect.value && x.kegiatan===activitySelect.value);
+  const d=data.find(x =>
+    x.bulan===monthSelect.value &&
+    x.komoditas===commoditySelect.value &&
+    x.kegiatan===activitySelect.value
+  );
   if(!d) return;
 
   if(chart) chart.destroy();
@@ -178,7 +183,7 @@ function drawChart(){
     data:{
       labels:['Harga Sebelumnya','Harga Sekarang'],
       datasets:[{
-        data:[d.hargaLalu,d.hargaNow],
+        data:[d.hargaLalu, d.hargaNow], // 🔒 DIKUNCI KE KOLOM
         backgroundColor:['#9ca3af','#0057a8']
       }]
     },
