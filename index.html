@@ -24,8 +24,25 @@ body{
   background:var(--bg);
   color:var(--text);
 }
-h1{color:var(--bps-blue);margin-bottom:20px}
+
+.header{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:10px;
+}
+.logo{height:48px}
+h1{margin:0;color:var(--bps-blue)}
+
+.subtitle{
+  margin-left:64px;
+  margin-bottom:20px;
+  font-size:14px;
+  color:#6b7280;
+}
+
 .dashboard{display:grid;grid-template-columns:320px 1fr;gap:24px}
+
 .card{
   background:var(--card);
   padding:16px 18px;
@@ -45,10 +62,12 @@ select{
   border:1px solid #d1d5db;
   font-size:14px;
 }
+
 .main{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .kpi .value{font-size:26px;font-weight:700;color:var(--bps-blue)}
 .kpi .label{font-size:12px;color:var(--muted)}
 .full{grid-column:1/-1}
+
 ul{margin:0;padding-left:18px}
 li{font-size:14px;margin-bottom:12px}
 canvas{height:320px!important}
@@ -59,20 +78,15 @@ canvas{height:320px!important}
   display:grid;
   grid-template-columns:320px 1fr;
   gap:16px;
-  align-items:start;
 }
+
 .chart-filter{
   display:flex;
   flex-direction:column;
   gap:12px;
 }
-	.subtitle{
-  margin-top:-10px;
-  margin-bottom:20px;
-  font-size:14px;
-  color:#6b7280;
-}
-	.footer{
+
+.footer{
   margin-top:40px;
   padding-top:12px;
   text-align:center;
@@ -80,20 +94,9 @@ canvas{height:320px!important}
   color:#6b7280;
   border-top:1px solid #e5e7eb;
 }
-	.header{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  margin-bottom:20px;
-}
-
-.logo{
-  height:48px;
-  width:auto;
-}
-
 </style>
 </head>
+
 
 <body>
 <div class="header">
@@ -353,4 +356,5 @@ function drawChart(){
 
 </body>
 </html>
+
 
