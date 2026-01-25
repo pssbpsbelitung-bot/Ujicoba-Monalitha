@@ -146,7 +146,8 @@ fetch(CSV_URL)
     kegiatan:h.indexOf('Jenis Kegiatan'),
     komoditas:h.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
     hargaSebelum:h.indexOf('Harga Sebelum'),
-    hargaSekarang:h.indexOf('Harga Sekarang')
+    hargaSekarang:h.indexOf('Harga Sekarang'),
+    alasan:h.indexOf('Alasan Perubahan Harga')
   };
 
   data=r.slice(1).map(x=>({
@@ -154,7 +155,8 @@ fetch(CSV_URL)
     kegiatan:x[idx.kegiatan],
     komoditas:x[idx.komoditas],
     hargaSebelum:parseNumber(x[idx.hargaSebelum]),
-    hargaSekarang:parseNumber(x[idx.hargaSekarang])
+    hargaSekarang:parseNumber(x[idx.hargaSekarang]),
+    alasan:x[idx.alasan]
   })).filter(d=>d.bulan && d.komoditas && !isNaN(d.hargaSebelum) && !isNaN(d.hargaSekarang));
 
   init();
@@ -225,9 +227,16 @@ function updateFenomena(){
     .slice(0,10)
     .forEach(([k,v])=>{
       const [kom,keg]=k.split('|');
+      const alasan = data.find(d =>
+        d.bulan===monthSelect.value &&
+        d.komoditas===kom &&
+        d.kegiatan===keg
+      )?.alasan || '-';
+
       fenomenaList.innerHTML+=`
         <li>
           <b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})
+          <div class="alasan">Alasan: ${alasan}</div>
         </li>`;
     });
 
@@ -272,4 +281,3 @@ function drawChart(){
 
 </body>
 </html>
-
