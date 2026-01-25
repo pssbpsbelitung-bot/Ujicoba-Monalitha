@@ -50,10 +50,22 @@ select{
 .kpi .label{font-size:12px;color:var(--muted)}
 .full{grid-column:1/-1}
 ul{margin:0;padding-left:18px}
-li{font-size:14px;margin-bottom:14px}
+li{font-size:14px;margin-bottom:12px}
 canvas{height:320px!important}
 .alasan{font-size:12px;color:#374151;margin-top:4px}
 .empty{color:#9ca3af}
+
+.chart-row{
+  display:grid;
+  grid-template-columns:320px 1fr;
+  gap:16px;
+  align-items:start;
+}
+.chart-filter{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
 </style>
 </head>
 
@@ -63,31 +75,38 @@ canvas{height:320px!important}
 
 <div class="dashboard">
 
+<!-- KIRI -->
 <div>
   <div class="card">
     <h3>Pilih Bulan</h3>
     <select id="monthSelect">
       <option value="">-- Pilih Bulan --</option>
     </select>
-  </div><br>
-
-  <div class="card">
-    <h3>Pilih Komoditas</h3>
-    <select id="commoditySelect"></select>
-  </div><br>
-
-  <div class="card">
-    <h3>Pilih Jenis Kegiatan</h3>
-    <select id="activitySelect"></select>
   </div>
 </div>
 
+<!-- KANAN -->
 <div class="main">
 
-<div class="card kpi"><div class="value" id="kpiKomoditas">0</div><div class="label">Jumlah Komoditas</div></div>
-<div class="card kpi"><div class="value" id="kpiFenomena">0</div><div class="label">Jumlah Fenomena</div></div>
-<div class="card kpi"><div class="value" id="kpiRata">0</div><div class="label">Rata-rata Perubahan (%)</div></div>
-<div class="card kpi"><div class="value" id="kpiPerubahan">0%</div><div class="label">Perubahan Terpilih</div></div>
+<div class="card kpi">
+  <div class="value" id="kpiKomoditas">0</div>
+  <div class="label">Jumlah Komoditas</div>
+</div>
+
+<div class="card kpi">
+  <div class="value" id="kpiFenomena">0</div>
+  <div class="label">Jumlah Fenomena</div>
+</div>
+
+<div class="card kpi">
+  <div class="value" id="kpiRata">0</div>
+  <div class="label">Rata-rata Perubahan (%)</div>
+</div>
+
+<div class="card kpi">
+  <div class="value" id="kpiPerubahan">0%</div>
+  <div class="label">Perubahan Terpilih</div>
+</div>
 
 <div class="card full">
   <h3>Fenomena Perubahan Harga</h3>
@@ -97,8 +116,26 @@ canvas{height:320px!important}
 </div>
 
 <div class="card full">
-  <h3>Perbandingan Harga</h3>
-  <canvas id="priceChart"></canvas>
+  <div class="chart-row">
+
+    <div class="chart-filter">
+      <div class="card">
+        <h3>Pilih Komoditas</h3>
+        <select id="commoditySelect"></select>
+      </div>
+
+      <div class="card">
+        <h3>Pilih Jenis Kegiatan</h3>
+        <select id="activitySelect"></select>
+      </div>
+    </div>
+
+    <div>
+      <h3>Perbandingan Harga</h3>
+      <canvas id="priceChart"></canvas>
+    </div>
+
+  </div>
 </div>
 
 </div>
@@ -229,27 +266,21 @@ function updateFenomena(){
   Object.entries(map)
     .sort((a,b)=>b[1]-a[1])
     .slice(0,10)
-    .forEach(([k,v])=>{
+    .forEach(([k])=>{
       const [kom,keg]=k.split('|');
+      const d=data.find(x=>x.bulan===monthSelect.value && x.komoditas===kom && x.kegiatan===keg);
 
-      const row=data.find(d=>
-        d.bulan===monthSelect.value &&
-        d.komoditas===kom &&
-        d.kegiatan===keg
-      );
-
-      const sebelum=row.hargaSebelum;
-      const sekarang=row.hargaSekarang;
-      const selisih=sekarang-sebelum;
+      const selisih=d.hargaSekarang-d.hargaSebelum;
 
       fenomenaList.innerHTML+=`
         <li>
-          <b>${kom} – ${keg}</b><br>
-          Sebelum = ${sebelum.toLocaleString('id-ID')}<br>
-          Sekarang = ${sekarang.toLocaleString('id-ID')}<br>
+          <strong>${kom} – ${keg}</strong><br>
+          Sebelum = ${d.hargaSebelum.toLocaleString('id-ID')}<br>
+          Sekarang = ${d.hargaSekarang.toLocaleString('id-ID')}<br>
           Selisih = ${selisih.toLocaleString('id-ID')}<br>
-          <div class="alasan">Fenomena: ${row.alasan}</div>
-        </li>`;
+          <span class="alasan">Fenomena: ${d.alasan}</span>
+        </li>
+      `;
     });
 
   kpiFenomena.innerText=Object.keys(map).length;
@@ -261,11 +292,9 @@ function drawChart(){
     x.komoditas===commoditySelect.value &&
     x.kegiatan===activitySelect.value
   );
-
   if(!d) return;
 
   const perubahan=((d.hargaSekarang-d.hargaSebelum)/d.hargaSebelum)*100;
-
   kpiPerubahan.innerText=perubahan.toFixed(2)+'%';
   kpiRata.innerText=Math.abs(perubahan).toFixed(1);
 
@@ -277,6 +306,7 @@ function drawChart(){
       labels:['Harga Sebelum','Harga Sekarang'],
       datasets:[{
         data:[d.hargaSebelum,d.hargaSekarang],
+        backgroundColor:['#9ca3af','#0057a8'],
         borderRadius:8
       }]
     },
