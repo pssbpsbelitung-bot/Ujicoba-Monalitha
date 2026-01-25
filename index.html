@@ -103,14 +103,9 @@ canvas{height:320px!important}
 </div>
 
 <script>
-/* =======================
-   LINK CSV FINAL (BARU)
-   ======================= */
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYuI4h54ZH8ZvdsNfJWm82mh4s_tbFzSdN6iX2eNbnjKVI0qHmjVtUPGrcAqs8iaA-M7mVeUfBhMdk/pub?output=csv";
+const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
+let data=[],chart=null;
 
-let data=[], chart=null;
-
-/* ===== UTIL ===== */
 function parseCSV(t){
   return t.split(/\r?\n/)
     .map(r=>r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
@@ -135,16 +130,6 @@ function normalizeBulan(b){
   return '';
 }
 
-function getAlasan(k){
-  k=k.toLowerCase();
-  if(k.includes('sapi')) return 'Meningkatnya permintaan dan keterbatasan pasokan.';
-  if(k.includes('emas')) return 'Fluktuasi harga emas dunia dan nilai tukar.';
-  if(k.includes('bawang')) return 'Pasokan berkurang dari sentra produksi.';
-  if(k.includes('cabe')) return 'Produksi menurun akibat faktor cuaca.';
-  return 'Perubahan pasokan dan permintaan pasar.';
-}
-
-/* ===== LOAD DATA ===== */
 fetch(CSV_URL)
 .then(r=>r.text())
 .then(t=>{
@@ -163,14 +148,13 @@ fetch(CSV_URL)
     bulan:normalizeBulan(x[idx.bulan]),
     kegiatan:x[idx.kegiatan],
     komoditas:x[idx.komoditas],
-    hargaLalu:Number(x[idx.hargaLalu])||0,
-    hargaNow:Number(x[idx.hargaNow])||0
+    hargaLalu:Number(x[idx.hargaLalu]) || 0,
+    hargaNow:Number(x[idx.hargaNow]) || 0
   })).filter(d=>d.bulan && d.komoditas);
 
   init();
 });
 
-/* ===== UI LOGIC ===== */
 function init(){
   [...new Set(data.map(d=>d.bulan))].forEach(b=>{
     monthSelect.add(new Option(b,b));
@@ -197,6 +181,7 @@ function updateKomoditas(){
   [...new Set(list.map(d=>d.komoditas))].forEach(k=>{
     commoditySelect.add(new Option(k,k));
   });
+
   kpiKomoditas.innerText=commoditySelect.length;
   commoditySelect.onchange=updateKegiatan;
   updateKegiatan();
@@ -208,9 +193,11 @@ function updateKegiatan(){
     d.bulan===monthSelect.value &&
     d.komoditas===commoditySelect.value
   );
+
   [...new Set(list.map(d=>d.kegiatan))].forEach(k=>{
     activitySelect.add(new Option(k,k));
   });
+
   activitySelect.onchange=renderAll;
   renderAll();
 }
@@ -223,8 +210,8 @@ function renderAll(){
 function updateFenomena(){
   const map={};
   data.filter(d=>d.bulan===monthSelect.value).forEach(d=>{
-    const key=d.komoditas+'|'+d.kegiatan;
-    map[key]=(map[key]||0)+Math.abs(d.hargaNow-d.hargaLalu);
+    const k=d.komoditas+'|'+d.kegiatan;
+    map[k]=(map[k]||0)+Math.abs(d.hargaNow-d.hargaLalu);
   });
 
   fenomenaList.innerHTML='';
@@ -236,7 +223,6 @@ function updateFenomena(){
       fenomenaList.innerHTML+=`
         <li>
           <b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})
-          <div class="alasan">Alasan: ${getAlasan(kom)}</div>
         </li>`;
     });
 
@@ -249,16 +235,18 @@ function drawChart(){
     x.komoditas===commoditySelect.value &&
     x.kegiatan===activitySelect.value
   );
+
   if(!d) return;
 
-  const p=d.hargaLalu
+  const perubahan=d.hargaLalu
     ? ((d.hargaNow-d.hargaLalu)/d.hargaLalu)*100
     : 0;
 
-  kpiPerubahan.innerText=p.toFixed(2)+'%';
-  kpiRata.innerText=Math.abs(p).toFixed(1);
+  kpiPerubahan.innerText=perubahan.toFixed(2)+'%';
+  kpiRata.innerText=Math.abs(perubahan).toFixed(1);
 
   if(chart) chart.destroy();
+
   chart=new Chart(priceChart,{
     type:'bar',
     data:{
