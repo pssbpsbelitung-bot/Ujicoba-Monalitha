@@ -66,12 +66,48 @@ canvas{height:320px!important}
   flex-direction:column;
   gap:12px;
 }
+  .header{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:24px;
+}
+
+.logo{
+  height:56px;
+  width:auto;
+}
+
+.header-text h1{
+  margin:0;
+  color:var(--bps-blue);
+}
+
+.subtitle{
+  font-size:14px;
+  color:var(--muted);
+  margin-top:4px;
+}
+  .footer{
+  margin-top:48px;
+  padding-top:12px;
+  text-align:center;
+  font-size:12px;
+  color:#6b7280;
+  border-top:1px solid #e5e7eb;
+}
 </style>
 </head>
 
 <body>
 
-<h1>Dashboard Monitoring Harga</h1>
+<div class="header">
+  <img src="https://lh3.googleusercontent.com/d/1FmC7IA0IFPIagwnYJlj7m9VkNZEdFkMJ=s300" alt="Logo BPS" class="logo">
+  <div class="header-text">
+    <h1>Dashboard Monitoring Harga</h1>
+    <div class="subtitle">Badan Pusat Statistik Kabupaten Belitung</div>
+  </div>
+</div>
 
 <div class="dashboard">
 
@@ -318,6 +354,10 @@ function drawChart(){
   });
 }
 </script>
+<footer class="footer">
+  © 2026 Badan Pusat Statistik Kabupaten Belitung. Seluruh hak cipta dilindungi.
+</footer>
 
 </body>
 </html>
+
