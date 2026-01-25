@@ -18,9 +18,11 @@
 }
 *{box-sizing:border-box}
 body{
-  margin:0;padding:24px;
+  margin:0;
+  padding:24px;
   font-family:Inter,system-ui,sans-serif;
-  background:var(--bg);color:var(--text)
+  background:var(--bg);
+  color:var(--text);
 }
 h1{color:var(--bps-blue);margin-bottom:20px}
 .dashboard{display:grid;grid-template-columns:320px 1fr;gap:24px}
@@ -28,12 +30,20 @@ h1{color:var(--bps-blue);margin-bottom:20px}
   background:var(--card);
   padding:16px 18px;
   border-radius:14px;
-  box-shadow:0 6px 18px rgba(0,0,0,.06)
+  box-shadow:0 6px 18px rgba(0,0,0,.06);
 }
-.card h3{margin:0 0 10px;font-size:14px;font-weight:600;color:var(--bps-blue)}
+.card h3{
+  margin:0 0 10px;
+  font-size:14px;
+  font-weight:600;
+  color:var(--bps-blue);
+}
 select{
-  width:100%;padding:10px;border-radius:8px;
-  border:1px solid #d1d5db;font-size:14px
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #d1d5db;
+  font-size:14px;
 }
 .main{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .kpi .value{font-size:26px;font-weight:700;color:var(--bps-blue)}
@@ -48,9 +58,11 @@ canvas{height:320px!important}
 </head>
 
 <body>
+
 <h1>Dashboard Monitoring Harga</h1>
 
 <div class="dashboard">
+
 <div>
   <div class="card">
     <h3>Pilih Bulan</h3>
@@ -71,34 +83,38 @@ canvas{height:320px!important}
 </div>
 
 <div class="main">
-  <div class="card kpi"><div class="value" id="kpiKomoditas">0</div><div class="label">Jumlah Komoditas</div></div>
-  <div class="card kpi"><div class="value" id="kpiFenomena">0</div><div class="label">Jumlah Fenomena</div></div>
-  <div class="card kpi"><div class="value" id="kpiRata">0</div><div class="label">Rata-rata Perubahan (%)</div></div>
-  <div class="card kpi"><div class="value" id="kpiPerubahan">0%</div><div class="label">Perubahan Terpilih</div></div>
 
-  <div class="card full">
-    <h3>Fenomena Perubahan Harga</h3>
-    <ul id="fenomenaList"><li class="empty">Pilih bulan untuk melihat data</li></ul>
-  </div>
+<div class="card kpi"><div class="value" id="kpiKomoditas">0</div><div class="label">Jumlah Komoditas</div></div>
+<div class="card kpi"><div class="value" id="kpiFenomena">0</div><div class="label">Jumlah Fenomena</div></div>
+<div class="card kpi"><div class="value" id="kpiRata">0</div><div class="label">Rata-rata Perubahan (%)</div></div>
+<div class="card kpi"><div class="value" id="kpiPerubahan">0%</div><div class="label">Perubahan Terpilih</div></div>
 
-  <div class="card full">
-    <h3>Perbandingan Harga</h3>
-    <canvas id="priceChart"></canvas>
-  </div>
+<div class="card full">
+  <h3>Fenomena Perubahan Harga</h3>
+  <ul id="fenomenaList"><li class="empty">Pilih bulan untuk melihat data</li></ul>
+</div>
+
+<div class="card full">
+  <h3>Perbandingan Harga</h3>
+  <canvas id="priceChart"></canvas>
+</div>
+
 </div>
 </div>
 
 <script>
-const CSV_URL =
-"https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ4j39acDNiz8Vx86BiJ0ePelFZco736J6qzZGU-xhckrFO8CBfjweBT_K8xV63ERrcqP0Rm1ESeKR/pub?output=csv";
+/* =======================
+   LINK CSV FINAL (BARU)
+   ======================= */
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYuI4h54ZH8ZvdsNfJWm82mh4s_tbFzSdN6iX2eNbnjKVI0qHmjVtUPGrcAqs8iaA-M7mVeUfBhMdk/pub?output=csv";
 
 let data=[], chart=null;
 
+/* ===== UTIL ===== */
 function parseCSV(t){
-  return t.split(/\r?\n/).map(r =>
-    r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-     .map(v=>v.replace(/^"|"$/g,'').trim())
-  );
+  return t.split(/\r?\n/)
+    .map(r=>r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+    .map(v=>v.replace(/^"|"$/g,'').trim()));
 }
 
 function normalizeBulan(b){
@@ -107,47 +123,68 @@ function normalizeBulan(b){
   if(b.includes('jan')) return 'Januari';
   if(b.includes('feb')) return 'Februari';
   if(b.includes('mar')) return 'Maret';
+  if(b.includes('apr')) return 'April';
+  if(b.includes('mei')||b.includes('may')) return 'Mei';
+  if(b.includes('jun')) return 'Juni';
+  if(b.includes('jul')) return 'Juli';
+  if(b.includes('agu')||b.includes('aug')) return 'Agustus';
+  if(b.includes('sep')) return 'September';
+  if(b.includes('okt')||b.includes('oct')) return 'Oktober';
+  if(b.includes('nov')) return 'November';
+  if(b.includes('des')||b.includes('dec')) return 'Desember';
   return '';
 }
 
 function getAlasan(k){
+  k=k.toLowerCase();
+  if(k.includes('sapi')) return 'Meningkatnya permintaan dan keterbatasan pasokan.';
+  if(k.includes('emas')) return 'Fluktuasi harga emas dunia dan nilai tukar.';
+  if(k.includes('bawang')) return 'Pasokan berkurang dari sentra produksi.';
+  if(k.includes('cabe')) return 'Produksi menurun akibat faktor cuaca.';
   return 'Perubahan pasokan dan permintaan pasar.';
 }
 
+/* ===== LOAD DATA ===== */
 fetch(CSV_URL)
 .then(r=>r.text())
 .then(t=>{
-  const rows=parseCSV(t);
-  const h=rows[0].map(x=>x.toLowerCase());
+  const r=parseCSV(t);
+  const h=r[0];
 
   const idx={
-    bulan: h.findIndex(x=>x.includes('bulan')),
-    kegiatan: h.findIndex(x=>x.includes('kegiatan')),
-    komoditas: h.findIndex(x=>x.includes('komoditas')),
-    hargaLalu: h.findIndex(x=>x.includes('sebelumnya')),
-    hargaNow: h.findIndex(x=>x.includes('sekarang'))
+    bulan:h.indexOf('Bulan'),
+    kegiatan:h.indexOf('Jenis Kegiatan'),
+    komoditas:h.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
+    hargaLalu:h.indexOf('Harga Sebelumnya'),
+    hargaNow:h.indexOf('Harga Sekarang')
   };
 
-  data=rows.slice(1).map(r=>({
-    bulan: normalizeBulan(r[idx.bulan]),
-    kegiatan: r[idx.kegiatan],
-    komoditas: r[idx.komoditas],
-    hargaLalu: Number(r[idx.hargaLalu]),
-    hargaNow: Number(r[idx.hargaNow])
-  })).filter(d=>d.bulan && d.komoditas && !isNaN(d.hargaLalu));
+  data=r.slice(1).map(x=>({
+    bulan:normalizeBulan(x[idx.bulan]),
+    kegiatan:x[idx.kegiatan],
+    komoditas:x[idx.komoditas],
+    hargaLalu:Number(x[idx.hargaLalu])||0,
+    hargaNow:Number(x[idx.hargaNow])||0
+  })).filter(d=>d.bulan && d.komoditas);
 
   init();
 });
 
+/* ===== UI LOGIC ===== */
 function init(){
-  [...new Set(data.map(d=>d.bulan))]
-    .forEach(b=>monthSelect.add(new Option(b,b)));
+  [...new Set(data.map(d=>d.bulan))].forEach(b=>{
+    monthSelect.add(new Option(b,b));
+  });
   monthSelect.onchange=updateKomoditas;
 }
 
 function resetUI(){
   commoditySelect.innerHTML='';
   activitySelect.innerHTML='';
+  kpiKomoditas.innerText=0;
+  kpiFenomena.innerText=0;
+  kpiRata.innerText=0;
+  kpiPerubahan.innerText='0%';
   fenomenaList.innerHTML='<li class="empty">Tidak ada data</li>';
   if(chart){chart.destroy();chart=null;}
 }
@@ -156,26 +193,70 @@ function updateKomoditas(){
   resetUI();
   const list=data.filter(d=>d.bulan===monthSelect.value);
   if(!list.length) return;
-  [...new Set(list.map(d=>d.komoditas))]
-    .forEach(k=>commoditySelect.add(new Option(k,k)));
+
+  [...new Set(list.map(d=>d.komoditas))].forEach(k=>{
+    commoditySelect.add(new Option(k,k));
+  });
+  kpiKomoditas.innerText=commoditySelect.length;
   commoditySelect.onchange=updateKegiatan;
+  updateKegiatan();
 }
 
 function updateKegiatan(){
   activitySelect.innerHTML='';
-  const list=data.filter(d=>d.bulan===monthSelect.value && d.komoditas===commoditySelect.value);
-  [...new Set(list.map(d=>d.kegiatan))]
-    .forEach(k=>activitySelect.add(new Option(k,k)));
-  activitySelect.onchange=drawChart;
+  const list=data.filter(d=>
+    d.bulan===monthSelect.value &&
+    d.komoditas===commoditySelect.value
+  );
+  [...new Set(list.map(d=>d.kegiatan))].forEach(k=>{
+    activitySelect.add(new Option(k,k));
+  });
+  activitySelect.onchange=renderAll;
+  renderAll();
+}
+
+function renderAll(){
+  updateFenomena();
+  drawChart();
+}
+
+function updateFenomena(){
+  const map={};
+  data.filter(d=>d.bulan===monthSelect.value).forEach(d=>{
+    const key=d.komoditas+'|'+d.kegiatan;
+    map[key]=(map[key]||0)+Math.abs(d.hargaNow-d.hargaLalu);
+  });
+
+  fenomenaList.innerHTML='';
+  Object.entries(map)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,10)
+    .forEach(([k,v])=>{
+      const [kom,keg]=k.split('|');
+      fenomenaList.innerHTML+=`
+        <li>
+          <b>${kom}</b> – ${keg} (${v.toLocaleString('id-ID')})
+          <div class="alasan">Alasan: ${getAlasan(kom)}</div>
+        </li>`;
+    });
+
+  kpiFenomena.innerText=Object.keys(map).length;
 }
 
 function drawChart(){
-  const d=data.find(x =>
+  const d=data.find(x=>
     x.bulan===monthSelect.value &&
     x.komoditas===commoditySelect.value &&
     x.kegiatan===activitySelect.value
   );
   if(!d) return;
+
+  const p=d.hargaLalu
+    ? ((d.hargaNow-d.hargaLalu)/d.hargaLalu)*100
+    : 0;
+
+  kpiPerubahan.innerText=p.toFixed(2)+'%';
+  kpiRata.innerText=Math.abs(p).toFixed(1);
 
   if(chart) chart.destroy();
   chart=new Chart(priceChart,{
@@ -183,13 +264,18 @@ function drawChart(){
     data:{
       labels:['Harga Sebelumnya','Harga Sekarang'],
       datasets:[{
-        data:[d.hargaLalu, d.hargaNow], // 🔒 DIKUNCI KE KOLOM
-        backgroundColor:['#9ca3af','#0057a8']
+        data:[d.hargaLalu,d.hargaNow],
+        backgroundColor:['#9ca3af','#0057a8'],
+        borderRadius:8
       }]
     },
-    options:{plugins:{legend:{display:false}}}
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true}}
+    }
   });
 }
 </script>
+
 </body>
 </html>
