@@ -140,7 +140,7 @@ fetch(CSV_URL)
     bulan:h.indexOf('Bulan'),
     kegiatan:h.indexOf('Jenis Kegiatan'),
     komoditas:h.indexOf('Nama Komoditas (Isikan Lengkap Hingga Kualitasnya)'),
-    hargaLalu:h.indexOf('Harga Sebelumnya'),
+    hargaLalu:h.indexOf('Harga Sebelum'),
     hargaNow:h.indexOf('Harga Sekarang')
   };
 
@@ -250,7 +250,7 @@ function drawChart(){
   chart=new Chart(priceChart,{
     type:'bar',
     data:{
-      labels:['Harga Sebelumnya','Harga Sekarang'],
+      labels:['Harga Sebelum','Harga Sekarang'],
       datasets:[{
         data:[d.hargaLalu,d.hargaNow],
         backgroundColor:['#9ca3af','#0057a8'],
@@ -267,5 +267,6 @@ function drawChart(){
 
 </body>
 </html>
+
 
 
