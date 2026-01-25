@@ -98,16 +98,6 @@ canvas{height:320px!important}
   <div class="label">Jumlah Fenomena</div>
 </div>
 
-<div class="card kpi">
-  <div class="value" id="kpiRata">0</div>
-  <div class="label">Rata-rata Perubahan (%)</div>
-</div>
-
-<div class="card kpi">
-  <div class="value" id="kpiPerubahan">0%</div>
-  <div class="label">Perubahan Terpilih</div>
-</div>
-
 <div class="card full">
   <h3>Fenomena Perubahan Harga</h3>
   <ul id="fenomenaList">
@@ -118,7 +108,9 @@ canvas{height:320px!important}
 <div class="card full">
   <div class="chart-row">
 
+    <!-- FILTER + KPI DETAIL -->
     <div class="chart-filter">
+
       <div class="card">
         <h3>Pilih Komoditas</h3>
         <select id="commoditySelect"></select>
@@ -128,8 +120,20 @@ canvas{height:320px!important}
         <h3>Pilih Jenis Kegiatan</h3>
         <select id="activitySelect"></select>
       </div>
+
+      <div class="card kpi">
+        <div class="value" id="kpiRata">0</div>
+        <div class="label">Rata-rata Perubahan (%)</div>
+      </div>
+
+      <div class="card kpi">
+        <div class="value" id="kpiPerubahan">0%</div>
+        <div class="label">Perubahan Terpilih</div>
+      </div>
+
     </div>
 
+    <!-- GRAFIK -->
     <div>
       <h3>Perbandingan Harga</h3>
       <canvas id="priceChart"></canvas>
@@ -147,7 +151,7 @@ let data=[],chart=null;
 
 function parseCSV(t){
   return t.split(/\r?\n/)
-    .map(r=>r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+    .map(r=>r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/))
     .map(v=>v.replace(/^"|"$/g,'').trim()));
 }
 
