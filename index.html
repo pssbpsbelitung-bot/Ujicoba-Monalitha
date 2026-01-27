@@ -134,6 +134,10 @@ canvas{height:320px!important}
   <div class="label">Jumlah Fenomena</div>
 </div>
 
+	<div class="card kpi">
+  <div class="value" id="kpiTotalPersen">0%</div>
+  <div class="label">Total Perubahan Harga (%)</div>
+</div>
 
 <div class="card full">
   <h3>Fenomena Perubahan Harga</h3>
@@ -322,6 +326,14 @@ function updateFenomena(){
 
   kpiFenomena.innerText=Object.keys(map).length;
 }
+  const totalSebelum=list.reduce((a,b)=>a+b.sebelum,0);
+  const totalSekarang=list.reduce((a,b)=>a+b.sekarang,0);
+  const persen=((totalSekarang-totalSebelum)/totalSebelum)*100;
+  kpiTotalPersen.innerText=persen.toFixed(2)+'%';
+
+  commoditySelect.onchange=()=>render(list);
+  render(list);
+}
 
 function drawChart(){
   const d=data.find(x=>
@@ -360,6 +372,7 @@ function drawChart(){
 
 </body>
 </html>
+
 
 
 
