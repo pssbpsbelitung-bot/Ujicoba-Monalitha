@@ -218,18 +218,15 @@ function parseNumber(v){
 
   v = v.toString().trim();
 
-  // jika ada koma DAN tidak ada titik → koma = ribuan
-  if(v.includes(',') && !v.includes('.')){
-    return Number(v.replace(/,/g,''));
+  // ubah koma ke titik dulu
+  let n = Number(v.replace(',', '.'));
+
+  // JIKA NILAI KECIL, ANGKAT JADI RIBUAN
+  if(n < 100){
+    return n * 1000;
   }
 
-  // jika ada titik DAN koma → titik ribuan, koma desimal
-  if(v.includes('.') && v.includes(',')){
-    return Number(v.replace(/\./g,'').replace(',', '.'));
-  }
-
-  // default
-  return Number(v);
+  return n;
 }
 
 fetch(CSV_URL)
@@ -417,5 +414,6 @@ function drawChart(){
 
 </body>
 </html>
+
 
 
