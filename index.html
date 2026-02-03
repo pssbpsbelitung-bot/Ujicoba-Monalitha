@@ -214,19 +214,8 @@ function normalizeBulan(b){
 }
 
 function parseNumber(v){
-  if(!v) return NaN;
-
-  v = v.toString().trim();
-
-  // ubah koma ke titik dulu
-  let n = Number(v.replace(',', '.'));
-
-  // JIKA NILAI KECIL, ANGKAT JADI RIBUAN
-  if(n < 100){
-    return n * 1000;
-  }
-
-  return n;
+  if(v === undefined || v === null || v === '') return NaN;
+  return Number(v);
 }
 
 fetch(CSV_URL)
@@ -414,6 +403,7 @@ function drawChart(){
 
 </body>
 </html>
+
 
 
 
