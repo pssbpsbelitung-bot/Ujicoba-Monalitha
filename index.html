@@ -188,9 +188,8 @@ function updateAll(){
   const persen=((totalSekarang-totalSebelum)/totalSebelum)*100;
   kpiTotalPersen.innerText=persen.toFixed(2)+'%';
 
-commoditySelect.onchange = () => render(list);
-render(list);
-renderFenomenaTerkecil(list);
+commoditySelect.onchange=()=>render(list);
+  render(list);
 
 }
 
@@ -251,3 +250,4 @@ function draw(sub){
 
 </body>
 </html>
+
