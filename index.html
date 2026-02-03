@@ -213,9 +213,16 @@ function normalizeBulan(b){
   return '';
 }
 
-function parseNumber(v){
+function parseNumber(v, kegiatan){
   if(v === undefined || v === null || v === '') return NaN;
-  return Number(v);
+  let n = Number(v);
+  if(isNaN(n)) return NaN;
+
+  // aturan satuan SHPB
+  if(kegiatan?.toUpperCase().includes('SHPB') && n < 1000){
+    return n * 1000;
+  }
+  return n;
 }
 
 fetch(CSV_URL)
@@ -403,6 +410,7 @@ function drawChart(){
 
 </body>
 </html>
+
 
 
 
