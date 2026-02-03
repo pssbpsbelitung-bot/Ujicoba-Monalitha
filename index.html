@@ -215,7 +215,21 @@ function normalizeBulan(b){
 
 function parseNumber(v){
   if(!v) return NaN;
-  return Number(v.replace(/\./g,'').replace(/,/g,'.'));
+
+  v = v.toString().trim();
+
+  // jika ada koma DAN tidak ada titik → koma = ribuan
+  if(v.includes(',') && !v.includes('.')){
+    return Number(v.replace(/,/g,''));
+  }
+
+  // jika ada titik DAN koma → titik ribuan, koma desimal
+  if(v.includes('.') && v.includes(',')){
+    return Number(v.replace(/\./g,'').replace(',', '.'));
+  }
+
+  // default
+  return Number(v);
 }
 
 fetch(CSV_URL)
@@ -403,4 +417,5 @@ function drawChart(){
 
 </body>
 </html>
+
 
